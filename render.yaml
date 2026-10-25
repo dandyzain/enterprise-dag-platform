@@ -1,0 +1,54 @@
+services:
+  - type: web
+    name: enterprise-dag-platform
+    runtime: node
+    plan: free
+    buildCommand: pnpm install && pnpm build
+    startCommand: pnpm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: enterprise-dag-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: enterprise-dag-redis
+          property: connectionString
+      - key: ENCRYPTION_MASTER_KEY
+        generateValue: true
+
+  - type: worker
+    name: enterprise-dag-worker
+    runtime: node
+    plan: starter
+    buildCommand: pnpm install
+    startCommand: pnpm worker
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: enterprise-dag-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: enterprise-dag-redis
+          property: connectionString
+      - key: ENCRYPTION_MASTER_KEY
+        fromService:
+          type: web
+          name: enterprise-dag-platform
+          envVarKey: ENCRYPTION_MASTER_KEY
+
+databases:
+  - name: enterprise-dag-postgres
+    plan: free
+    databaseName: enterprise_dag
+    user: dag_admin
+
+  - type: redis
+    name: enterprise-dag-redis
+    plan: free
+    ipAllowList: []
