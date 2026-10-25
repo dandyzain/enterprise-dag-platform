@@ -1,0 +1,219 @@
+{
+  "common": {
+    "appName": "NexusFlow Enterprise DAG",
+    "dashboard": "Dashboard",
+    "workflows": "Workflows",
+    "executions": "Executions",
+    "credentials": "Credentials",
+    "settings": "Settings",
+    "status": "Status",
+    "save": "Save Workflow",
+    "saving": "Saving...",
+    "publish": "Publish",
+    "publishing": "Publishing...",
+    "testRun": "Test Execution",
+    "testing": "Executing DAG...",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "search": "Search...",
+    "back": "Back",
+    "actions": "Actions",
+    "loading": "Loading...",
+    "viewDetails": "View Details",
+    "copied": "Copied to clipboard",
+    "language": "Language",
+    "english": "English",
+    "indonesian": "Bahasa Indonesia"
+  },
+  "workflow": {
+    "title": "Workflow Editor",
+    "untitled": "Untitled Workflow",
+    "descriptionPlaceholder": "Enter workflow description...",
+    "status": {
+      "draft": "Draft",
+      "published": "Published",
+      "disabled": "Disabled"
+    },
+    "canvas": {
+      "zoomIn": "Zoom In",
+      "zoomOut": "Zoom Out",
+      "fitView": "Fit View",
+      "interactive": "Interactive Lock",
+      "mobileNotice": "Complex DAG workflows are best edited on a desktop or tablet viewport. Node inspection is displayed in drawer mode.",
+      "addNode": "Add Node",
+      "dragHelp": "Drag items to the canvas or click to add directly.",
+      "emptyCanvas": "Your workflow canvas is empty. Drag or select a node from the left palette to start your DAG pipeline.",
+      "executionMode": "Live Execution Mode",
+      "replayMode": "Replay Execution Log",
+      "statusPending": "Queued",
+      "statusRunning": "Processing",
+      "statusSuccess": "Completed",
+      "statusFailed": "Failed"
+    },
+    "palette": {
+      "title": "Node Library",
+      "subtitle": "Drag and drop building blocks",
+      "categories": {
+        "triggers": "Triggers & Ingestion",
+        "actions": "Actions & Integrations",
+        "logic": "Logic & Routing",
+        "transform": "Data Transformation"
+      }
+    },
+    "inspector": {
+      "title": "Node Inspector",
+      "subtitle": "Configure node parameters and bindings",
+      "selectNodePrompt": "Select any node on the canvas to inspect its configuration and incoming variables.",
+      "nodeId": "Node ID",
+      "nodeType": "Node Type",
+      "label": "Display Label",
+      "description": "Description",
+      "configuration": "Parameters",
+      "variables": "Variable Interpolation Helper",
+      "variableHint": "Use '{{trigger.body.field}}' or '{{steps.nodeId.output.field}}' to pass outputs dynamically.",
+      "testStep": "Run Step Test",
+      "deleteNode": "Remove Node"
+    }
+  },
+  "nodes": {
+    "trigger": {
+      "name": "Manual Trigger",
+      "badge": "TRIGGER",
+      "description": "Starts the workflow manually with an ad-hoc JSON payload or test schedule.",
+      "defaultLabel": "Manual Ingestion Trigger",
+      "fields": {
+        "payload": "Sample Input JSON Payload"
+      }
+    },
+    "webhook": {
+      "name": "Webhook Ingestion",
+      "badge": "WEBHOOK",
+      "description": "Receives asynchronous external HTTP POST events. Responds with 202 Accepted and queues DAG execution via BullMQ.",
+      "defaultLabel": "Inbound Webhook",
+      "fields": {
+        "path": "Endpoint URL Slug",
+        "pathPlaceholder": "e.g., stripe-events-hook",
+        "authHeader": "Optional Secret Header Key",
+        "method": "HTTP Method"
+      }
+    },
+    "action": {
+      "name": "HTTP Request Action",
+      "badge": "ACTION",
+      "description": "Dispatches external HTTP requests (GET, POST, PUT, DELETE) with interpolated variables and authorization headers.",
+      "defaultLabel": "External API Call",
+      "fields": {
+        "url": "Target URL",
+        "urlPlaceholder": "https://api.example.com/v1/resource",
+        "method": "HTTP Method",
+        "headers": "Request Headers (JSON)",
+        "body": "Request Body Payload (JSON or interpolated strings)",
+        "timeout": "Timeout (milliseconds)"
+      }
+    },
+    "filter": {
+      "name": "Condition Filter",
+      "badge": "FILTER",
+      "description": "Evaluates boolean expression rules against upstream step outputs to branch or halt workflow traversal.",
+      "defaultLabel": "Boolean Logic Gate",
+      "fields": {
+        "field": "Target Field Reference",
+        "fieldPlaceholder": "'{{steps.step_1.output.status}}'",
+        "operator": "Condition Operator",
+        "value": "Comparison Value",
+        "operators": {
+          "equals": "Equals (==)",
+          "notEquals": "Does Not Equal (!=)",
+          "contains": "Contains String",
+          "greaterThan": "Greater Than (>)",
+          "lessThan": "Less Than (<)",
+          "exists": "Is Present & Non-Null"
+        }
+      }
+    }
+  },
+  "validation": {
+    "dagCycleDetected": "Validation Error: Circular dependency detected in the workflow graph! DAG workflows cannot contain loops.",
+    "cyclePath": "Cycle loop detected traversing: {path}",
+    "noTriggerFound": "Validation Warning: The workflow graph requires at least one root Trigger or Webhook node.",
+    "disconnectedNodes": "Warning: Node '{id}' has no connected dependencies and will not execute.",
+    "invalidJson": "Invalid JSON syntax. Please verify formatted syntax.",
+    "requiredField": "This field is required.",
+    "savedSuccess": "Workflow graph validated and saved successfully.",
+    "saveFailed": "Unable to save workflow. Please review DAG graph constraints.",
+    "publishedSuccess": "Workflow successfully validated and published to live queue.",
+    "executionStarted": "Workflow execution triggered! Queued in BullMQ worker pool.",
+    "executionFailed": "Execution run failed. Review step logs for trace details."
+  },
+  "execution": {
+    "history": "Execution Run History",
+    "started": "Started",
+    "completed": "Completed",
+    "duration": "Duration",
+    "status": "State",
+    "inputPayload": "Trigger Payload",
+    "stepLogs": "Step Breakdown",
+    "noExecutions": "No execution records found yet. Trigger a test run to inspect live results."
+  },
+  "webhookConsole": {
+    "title": "Webhook Ingestion Console",
+    "subtitle": "Dispatch sample payloads to trigger the distributed DAG worker",
+    "targetEndpoint": "Target Endpoint",
+    "headers": "Request Headers",
+    "preset": "Payload Preset",
+    "payload": "JSON Payload",
+    "dispatch": "Dispatch Webhook Event (HTTP 202)",
+    "dispatching": "Sending HTTP POST...",
+    "streamOnCanvas": "Watch Live Stream on Canvas",
+    "responseStatus": "HTTP Response Status",
+    "copyUrl": "Copy Webhook URL",
+    "invalidJson": "Invalid JSON payload"
+  },
+  "settingsPage": {
+    "title": "Workspace & Plan Settings",
+    "subtitle": "Manage multi-tenant quotas, RBAC permissions, and production security policies",
+    "workspaceOverview": "Workspace Overview",
+    "planTiers": "Tier Quotas & Consumption",
+    "teamMembers": "Team Members & RBAC",
+    "securityPolicies": "Security & Egress Guardrails",
+    "switchDemoRole": "Switch Demo RBAC Persona",
+    "workflowsQuota": "Workflows Quota",
+    "executionsQuota": "Monthly Executions",
+    "concurrencyQuota": "Concurrent Workers",
+    "retentionQuota": "Data Retention Window"
+  },
+  "auth": {
+    "signInTab": "Sign In",
+    "registerTab": "Create Account",
+    "signInTitle": "Sign In to Workspace",
+    "signInSubtitle": "Access your distributed DAG pipelines and hardware encryption vault",
+    "registerTitle": "Create Workspace Account",
+    "registerSubtitle": "Start building fault-tolerant distributed DAG workflows in seconds",
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "e.g. Jane Doe",
+    "workEmail": "Work Email",
+    "emailPlaceholder": "name@enterprise.io",
+    "workspaceName": "Workspace Name",
+    "workspacePlaceholder": "e.g. Acme Automation Labs",
+    "password": "Password",
+    "passwordMinChars": "Must be at least 8 characters",
+    "signInButton": "Sign In",
+    "registerButton": "Create Workspace Account",
+    "authenticating": "Authenticating...",
+    "creatingAccount": "Creating Account...",
+    "noAccountPrompt": "Don't have an account?",
+    "createOne": "Create one",
+    "hasAccountPrompt": "Already have an account?",
+    "signInHere": "Sign In",
+    "quickDemoAccounts": "Quick Demo Accounts",
+    "signOut": "Sign Out",
+    "authenticatingStep1": "Verifying secure credentials...",
+    "authenticatingStep2": "Generating cryptographic session token...",
+    "authenticatingStep3": "Connecting to workspace dashboard...",
+    "registeringStep1": "Creating workspace & hashing credentials...",
+    "registeringStep2": "Initializing AES-256 vault & DAG worker...",
+    "redirecting": "Redirecting..."
+  }
+}

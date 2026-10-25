@@ -1,0 +1,219 @@
+{
+  "common": {
+    "appName": "NexusFlow Enterprise DAG",
+    "dashboard": "Dasbor",
+    "workflows": "Alur Kerja",
+    "executions": "Riwayat Eksekusi",
+    "credentials": "Kredensial",
+    "settings": "Pengaturan",
+    "status": "Status",
+    "save": "Simpan Alur Kerja",
+    "saving": "Menyimpan...",
+    "publish": "Publikasikan",
+    "publishing": "Mempublikasikan...",
+    "testRun": "Uji Eksekusi",
+    "testing": "Mengeksekusi DAG...",
+    "cancel": "Batal",
+    "delete": "Hapus",
+    "edit": "Ubah",
+    "close": "Tutup",
+    "search": "Cari...",
+    "back": "Kembali",
+    "actions": "Aksi",
+    "loading": "Memuat...",
+    "viewDetails": "Lihat Detail",
+    "copied": "Berhasil disalin ke papan klip",
+    "language": "Bahasa",
+    "english": "English",
+    "indonesian": "Bahasa Indonesia"
+  },
+  "workflow": {
+    "title": "Editor Alur Kerja",
+    "untitled": "Alur Kerja Tanpa Judul",
+    "descriptionPlaceholder": "Masukkan deskripsi alur kerja...",
+    "status": {
+      "draft": "Draf",
+      "published": "Dipublikasikan",
+      "disabled": "Dinonaktifkan"
+    },
+    "canvas": {
+      "zoomIn": "Perbesar",
+      "zoomOut": "Perkecil",
+      "fitView": "Sesuaikan Tampilan",
+      "interactive": "Kunci Interaksi",
+      "mobileNotice": "Penyusunan alur kerja DAG kompleks direkomendasikan pada layar desktop atau tablet. Inspeksi node dibuka dalam mode panel laci bawah.",
+      "addNode": "Tambah Node",
+      "dragHelp": "Tarik komponen ke kanvas atau klik untuk menambahkannya langsung.",
+      "emptyCanvas": "Kanvas alur kerja Anda masih kosong. Tarik atau pilih komponen dari pustaka di sisi kiri untuk memulai alur DAG.",
+      "executionMode": "Mode Eksekusi Langsung",
+      "replayMode": "Mode Pemutaran Riwayat",
+      "statusPending": "Dalam Antrean",
+      "statusRunning": "Sedang Berjalan",
+      "statusSuccess": "Berhasil",
+      "statusFailed": "Gagal"
+    },
+    "palette": {
+      "title": "Pustaka Komponen",
+      "subtitle": "Blok pembangun alur kerja",
+      "categories": {
+        "triggers": "Pemicu & Penerimaan",
+        "actions": "Aksi & Integrasi",
+        "logic": "Logika & Percabangan",
+        "transform": "Transformasi Data"
+      }
+    },
+    "inspector": {
+      "title": "Inspektur Node",
+      "subtitle": "Konfigurasi parameter dan ketergantungan",
+      "selectNodePrompt": "Pilih node mana saja pada kanvas untuk mengonfigurasi parameter dan pemetaan variabel.",
+      "nodeId": "ID Node",
+      "nodeType": "Tipe Node",
+      "label": "Label Tampilan",
+      "description": "Deskripsi",
+      "configuration": "Parameter Konfigurasi",
+      "variables": "Bantuan Penyaluran Variabel",
+      "variableHint": "Gunakan format '{{trigger.body.properti}}' atau '{{steps.id_node.output.properti}}' untuk mengalirkan data dinamis.",
+      "testStep": "Uji Langkah Ini",
+      "deleteNode": "Hapus Node"
+    }
+  },
+  "nodes": {
+    "trigger": {
+      "name": "Pemicu Manual",
+      "badge": "PEMICU",
+      "description": "Memulai alur kerja secara manual dengan payload JSON khusus atau simulasi pengujian.",
+      "defaultLabel": "Pemicu Masukan Manual",
+      "fields": {
+        "payload": "Contoh Payload Masukan JSON"
+      }
+    },
+    "webhook": {
+      "name": "Penerima Webhook",
+      "badge": "WEBHOOK",
+      "description": "Menerima panggilan HTTP POST asinkron dari pihak ketiga. Merespons langsung 202 Accepted dan memasukkan eksekusi DAG ke antrean BullMQ.",
+      "defaultLabel": "Titik Akhir Webhook",
+      "fields": {
+        "path": "URL Slug Jalur Webhook",
+        "pathPlaceholder": "contoh: stripe-payment-hook",
+        "authHeader": "Kunci Rahasia Header (Opsional)",
+        "method": "Metode HTTP"
+      }
+    },
+    "action": {
+      "name": "Aksi Panggilan HTTP",
+      "badge": "AKSI",
+      "description": "Mengirimkan permintaan HTTP eksternal (GET, POST, PUT, DELETE) dengan variabel dinamis dan header otorisasi.",
+      "defaultLabel": "Permintaan API Eksternal",
+      "fields": {
+        "url": "URL Tujuan",
+        "urlPlaceholder": "https://api.contoh.com/v1/resource",
+        "method": "Metode HTTP",
+        "headers": "Header Permintaan (JSON)",
+        "body": "Isi Permintaan (JSON atau teks tersisip)",
+        "timeout": "Batas Waktu (milidetik)"
+      }
+    },
+    "filter": {
+      "name": "Penyaring Kondisi",
+      "badge": "FILTER",
+      "description": "Mengevaluasi aturan logika boolean terhadap luaran node sebelumnya untuk menentukan kelanjutan atau penghentian alur kerja.",
+      "defaultLabel": "Gerbang Logika Boolean",
+      "fields": {
+        "field": "Referensi Properti Sumber",
+        "fieldPlaceholder": "'{{steps.step_1.output.status}}'",
+        "operator": "Operator Perbandingan",
+        "value": "Nilai Pembanding",
+        "operators": {
+          "equals": "Sama Dengan (==)",
+          "notEquals": "Tidak Sama Dengan (!=)",
+          "contains": "Mengandung Teks",
+          "greaterThan": "Lebih Besar Dari (>)",
+          "lessThan": "Lebih Kecil Dari (<)",
+          "exists": "Ada & Tidak Bernilai Null"
+        }
+      }
+    }
+  },
+  "validation": {
+    "dagCycleDetected": "Kesalahan Validasi: Siklus berulang terdeteksi pada graf alur kerja! Alur DAG tidak boleh memiliki perulangan tanpa henti.",
+    "cyclePath": "Jalur siklus yang ditemukan: {path}",
+    "noTriggerFound": "Peringatan Validasi: Alur kerja membutuhkan setidaknya satu node Pemicu (Trigger) atau Webhook sebagai titik awal.",
+    "disconnectedNodes": "Peringatan: Node '{id}' tidak terhubung dengan alur utama dan tidak akan dieksekusi.",
+    "invalidJson": "Format JSON tidak valid. Harap periksa sintaks data Anda.",
+    "requiredField": "Bidang ini wajib diisi.",
+    "savedSuccess": "Struktur graf alur kerja berhasil divalidasi dan disimpan.",
+    "saveFailed": "Gagal menyimpan alur kerja. Silakan periksa kendala struktur graf DAG Anda.",
+    "publishedSuccess": "Alur kerja berhasil divalidasi dan dipublikasikan ke antrean aktif.",
+    "executionStarted": "Eksekusi alur kerja berhasil dipicu! Dimasukkan ke dalam antrean pekerja BullMQ.",
+    "executionFailed": "Eksekusi alur kerja gagal. Tinjau riwayat langkah untuk detail kesalahan."
+  },
+  "execution": {
+    "history": "Riwayat Eksekusi",
+    "started": "Dimulai",
+    "completed": "Selesai",
+    "duration": "Durasi",
+    "status": "Status",
+    "inputPayload": "Payload Pemicu",
+    "stepLogs": "Rincian Langkah",
+    "noExecutions": "Belum ada catatan eksekusi. Jalankan uji eksekusi untuk melihat hasil langsung."
+  },
+  "webhookConsole": {
+    "title": "Konsol Ingesti Webhook",
+    "subtitle": "Kirim payload pengujian untuk memicu worker DAG terdistribusi",
+    "targetEndpoint": "Endpoint Tujuan",
+    "headers": "Header Permintaan",
+    "preset": "Templat Payload",
+    "payload": "Payload JSON",
+    "dispatch": "Kirim Event Webhook (HTTP 202)",
+    "dispatching": "Mengirim HTTP POST...",
+    "streamOnCanvas": "Lihat Live Stream di Kanvas",
+    "responseStatus": "Status Respons HTTP",
+    "copyUrl": "Salin URL Webhook",
+    "invalidJson": "Format JSON tidak valid"
+  },
+  "settingsPage": {
+    "title": "Pengaturan Ruang Kerja & Paket",
+    "subtitle": "Kelola kuota multi-penyewa, hak akses RBAC, dan kebijakan keamanan produksi",
+    "workspaceOverview": "Ringkasan Ruang Kerja",
+    "planTiers": "Kuota Paket & Penggunaan",
+    "teamMembers": "Anggota Tim & Hak Akses (RBAC)",
+    "securityPolicies": "Keamanan & Pengamanan Egress",
+    "switchDemoRole": "Ganti Peran RBAC Demo",
+    "workflowsQuota": "Kuota Alur Kerja",
+    "executionsQuota": "Eksekusi Bulanan",
+    "concurrencyQuota": "Pekerja Bersamaan",
+    "retentionQuota": "Masa Retensi Data"
+  },
+  "auth": {
+    "signInTab": "Masuk",
+    "registerTab": "Daftar Akun",
+    "signInTitle": "Masuk ke Ruang Kerja",
+    "signInSubtitle": "Akses pipeline DAG terdistribusi dan vault enkripsi perangkat keras",
+    "registerTitle": "Buat Akun Ruang Kerja",
+    "registerSubtitle": "Mulai bangun alur kerja DAG terdistribusi yang andal dalam hitungan detik",
+    "fullName": "Nama Lengkap",
+    "fullNamePlaceholder": "contoh: Budi Pratama",
+    "workEmail": "Email Kerja",
+    "emailPlaceholder": "nama@perusahaan.co.id",
+    "workspaceName": "Nama Ruang Kerja",
+    "workspacePlaceholder": "contoh: Tim Otomasi Acme",
+    "password": "Kata Sandi",
+    "passwordMinChars": "Minimal 8 karakter",
+    "signInButton": "Masuk",
+    "registerButton": "Buat Akun Ruang Kerja",
+    "authenticating": "Memverifikasi...",
+    "creatingAccount": "Membuat Akun...",
+    "noAccountPrompt": "Belum memiliki akun?",
+    "createOne": "Daftar sekarang",
+    "hasAccountPrompt": "Sudah memiliki akun?",
+    "signInHere": "Masuk di sini",
+    "quickDemoAccounts": "Akun Demo Cepat",
+    "signOut": "Keluar",
+    "authenticatingStep1": "Memverifikasi kredensial aman...",
+    "authenticatingStep2": "Membuat token sesi kriptografis...",
+    "authenticatingStep3": "Menghubungkan ke dashboard ruang kerja...",
+    "registeringStep1": "Membuat ruang kerja & meng-hash kata sandi...",
+    "registeringStep2": "Menginisialisasi vault AES-256 & worker DAG...",
+    "redirecting": "Mengalihkan..."
+  }
+}
