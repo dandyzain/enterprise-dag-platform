@@ -1,6 +1,7 @@
 import React from "react";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/routing";
+import { NexusLogo } from "@/components/brand/logo";
 import {
   Workflow,
   Plus,
@@ -30,22 +31,13 @@ export default async function DashboardPage() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
       {/* Header */}
       <header className="h-16 border-b border-zinc-800 bg-zinc-950/70 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 gap-3">
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-            <Workflow className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
-              <span className="truncate">{t("appName")}</span>
-              <span className="text-[10px] font-mono bg-zinc-800 text-emerald-400 border border-zinc-700 px-1.5 py-0.5 rounded shrink-0">
-                v1.0-prod
-              </span>
-            </div>
-            <p className="text-[11px] text-zinc-400 truncate hidden sm:block">
-              Distributed Directed Acyclic Graph Execution Engine
-            </p>
-          </div>
-        </div>
+        <Link href="/" className="hover:opacity-95 transition-opacity">
+          <NexusLogo
+            size="md"
+            badgeText="v1.0-prod"
+            subtitle="Distributed Directed Acyclic Graph Execution Engine"
+          />
+        </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-1 bg-zinc-900/60 border border-zinc-800/80 p-1 rounded-xl text-xs font-medium">

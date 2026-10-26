@@ -1,10 +1,20 @@
 import React from "react";
+import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing, Locale } from "@/i18n/routing";
 import { Toaster } from "sonner";
 import "@/app/globals.css";
+
+export const metadata: Metadata = {
+  title: "NexusFlow — Enterprise Visual Workflow DAG Platform",
+  description: "Distributed Directed Acyclic Graph (DAG) Execution Engine with Hardware-grade Security, Anti-SSRF, and Real-time Telemetry",
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/logo.svg",
+  },
+};
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));

@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { Link } from "@/i18n/routing";
+import { NexusLogoMark } from "@/components/brand/logo";
 import { SessionUser } from "@/lib/services/auth-service";
 import { UserNav } from "@/components/auth/user-nav";
 import { hasPermission } from "@/lib/auth/rbac";
@@ -120,9 +121,7 @@ export function WorkflowNavbar({
         <div className="h-4 w-px bg-zinc-800 shrink-0 hidden sm:block" />
 
         <div className="flex items-center gap-2 min-w-0">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-            <WorkflowIcon className="h-4 w-4" />
-          </div>
+          <NexusLogoMark size={26} animated />
 
           {isEditingName ? (
             <input

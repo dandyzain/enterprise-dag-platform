@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useTransition, useEffect } from "react";
+import { Link } from "@/i18n/routing";
+import { NexusLogo } from "@/components/brand/logo";
 import {
   Workflow,
   Loader2,
@@ -202,16 +204,22 @@ export function LoginForm() {
         </div>
       )}
       {/* Brand Header */}
-      <div className="space-y-2 text-center">
-        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-inner">
-          <Workflow className="h-6 w-6 animate-bounce-subtle" />
+      <div className="space-y-3 text-center flex flex-col items-center">
+        <Link href="/" className="hover:opacity-90 transition-opacity">
+          <NexusLogo
+            size="lg"
+            badgeText="Enterprise"
+            subtitle=""
+          />
+        </Link>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-zinc-100">
+            {mode === "login" ? t("signInTitle") : t("registerTitle")}
+          </h1>
+          <p className="text-xs text-zinc-400 mt-1">
+            {mode === "login" ? t("signInSubtitle") : t("registerSubtitle")}
+          </p>
         </div>
-        <h1 className="text-xl font-bold tracking-tight text-zinc-100">
-          {mode === "login" ? t("signInTitle") : t("registerTitle")}
-        </h1>
-        <p className="text-xs text-zinc-400">
-          {mode === "login" ? t("signInSubtitle") : t("registerSubtitle")}
-        </p>
       </div>
 
       {/* Mode Switcher Tabs */}

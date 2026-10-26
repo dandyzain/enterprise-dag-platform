@@ -1,0 +1,44 @@
+<svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="nexus-gradient" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#10B981" />
+      <stop offset="55%" stop-color="#06B6D4" />
+      <stop offset="100%" stop-color="#3B82F6" />
+    </linearGradient>
+    <linearGradient id="nexus-glow" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#06B6D4" stop-opacity="0.05" />
+    </linearGradient>
+    <linearGradient id="nexus-bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#18181B" />
+      <stop offset="100%" stop-color="#09090B" />
+    </linearGradient>
+    <filter id="nexus-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#10B981" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- Container -->
+  <rect x="1" y="1" width="30" height="30" rx="8" fill="url(#nexus-bg)" stroke="#27272A" stroke-width="1.2" />
+  <rect x="1.5" y="1.5" width="29" height="29" rx="7.5" fill="url(#nexus-glow)" />
+
+  <!-- DAG Flow Lines -->
+  <g stroke="url(#nexus-gradient)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7.5 16L16 7.5" opacity="0.9" />
+    <path d="M7.5 16L16 24.5" opacity="0.9" />
+    <path d="M16 7.5L16 24.5" stroke-dasharray="2 2" stroke-width="1.2" opacity="0.4" />
+    <path d="M7.5 16L24.5 16" stroke-width="1.4" opacity="0.75" />
+    <path d="M16 7.5L24.5 16" opacity="0.95" />
+    <path d="M16 24.5L24.5 16" opacity="0.95" />
+  </g>
+
+  <!-- Nodes -->
+  <circle cx="7.5" cy="16" r="2.2" fill="#10B981" filter="url(#nexus-shadow)" />
+  <circle cx="7.5" cy="16" r="1" fill="#FFFFFF" />
+  <circle cx="16" cy="7.5" r="2" fill="#06B6D4" />
+  <circle cx="16" cy="7.5" r="0.9" fill="#FFFFFF" />
+  <circle cx="16" cy="24.5" r="2" fill="#06B6D4" />
+  <circle cx="16" cy="24.5" r="0.9" fill="#FFFFFF" />
+  <circle cx="24.5" cy="16" r="2.4" fill="#3B82F6" filter="url(#nexus-shadow)" />
+  <circle cx="24.5" cy="16" r="1.1" fill="#FFFFFF" />
+</svg>

@@ -2,6 +2,7 @@ import React from "react";
 import { getTranslations } from "next-intl/server";
 import { Activity, ArrowLeft, Workflow, ShieldCheck } from "lucide-react";
 import { Link } from "@/i18n/routing";
+import { NexusLogoMark } from "@/components/brand/logo";
 import { listWorkflowExecutions } from "@/lib/services/execution-service";
 import { getCurrentSession } from "@/lib/services/auth-service";
 import { UserNav } from "@/components/auth/user-nav";
@@ -21,9 +22,10 @@ export default async function ExecutionsPage() {
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <Link
             href="/"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-300 hover:text-zinc-100 transition-colors"
+            className="flex items-center gap-2 hover:opacity-90 transition-opacity"
+            title="NexusFlow Home"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <NexusLogoMark size={30} animated />
           </Link>
           <div className="h-4 w-px bg-zinc-800 shrink-0 hidden sm:block" />
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400">
