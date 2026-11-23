@@ -174,6 +174,46 @@
   --animate-shake: shake 0.42s var(--ease-standard) 1;
   --animate-dash-flow: dash-flow 0.9s linear infinite;
   --animate-check-draw: check-draw 0.42s var(--ease-emphasized) both;
+  --animate-aurora-a: aurora-a 18s ease-in-out infinite alternate;
+  --animate-aurora-b: aurora-b 22s ease-in-out infinite alternate;
+  --animate-aurora-c: aurora-c 26s ease-in-out infinite alternate;
+}
+
+/* Ambient hero aurora — transform-only, paused off-screen and under reduced motion. */
+@keyframes aurora-a {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(70px, 40px, 0) scale(1.15);
+  }
+  100% {
+    transform: translate3d(-30px, 70px, 0) scale(0.95);
+  }
+}
+
+@keyframes aurora-b {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1.05);
+  }
+  50% {
+    transform: translate3d(-80px, 50px, 0) scale(0.9);
+  }
+  100% {
+    transform: translate3d(40px, -30px, 0) scale(1.12);
+  }
+}
+
+@keyframes aurora-c {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.95);
+  }
+  50% {
+    transform: translate3d(90px, -40px, 0) scale(1.1);
+  }
+  100% {
+    transform: translate3d(-60px, -10px, 0) scale(1);
+  }
 }
 
 @keyframes shimmer {
@@ -347,6 +387,23 @@
   );
   background-size: 200% 100%;
   animation: var(--animate-shimmer);
+}
+
+/* One-shot light sweep across a button on hover (no idle loop). */
+@utility shine {
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.35) 50%, transparent 80%);
+    transform: translateX(-130%);
+    transition: transform 750ms var(--ease-emphasized);
+  }
+  &:hover::after,
+  &:focus-visible::after {
+    transform: translateX(130%);
+  }
 }
 
 @utility pb-safe {
