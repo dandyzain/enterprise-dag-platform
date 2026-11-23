@@ -25,7 +25,9 @@
     "copied": "Berhasil disalin ke papan klip",
     "language": "Bahasa",
     "english": "English",
-    "indonesian": "Bahasa Indonesia"
+    "indonesian": "Bahasa Indonesia",
+    "theme": "Tema",
+    "or": "atau"
   },
   "workflow": {
     "title": "Editor Alur Kerja",
@@ -85,7 +87,8 @@
       "defaultLabel": "Pemicu Masukan Manual",
       "fields": {
         "payload": "Contoh Payload Masukan JSON"
-      }
+      },
+      "short": "Pemicu"
     },
     "webhook": {
       "name": "Penerima Webhook",
@@ -97,7 +100,8 @@
         "pathPlaceholder": "contoh: stripe-payment-hook",
         "authHeader": "Kunci Rahasia Header (Opsional)",
         "method": "Metode HTTP"
-      }
+      },
+      "short": "Webhook"
     },
     "action": {
       "name": "Aksi Panggilan HTTP",
@@ -111,7 +115,8 @@
         "headers": "Header Permintaan (JSON)",
         "body": "Isi Permintaan (JSON atau teks tersisip)",
         "timeout": "Batas Waktu (milidetik)"
-      }
+      },
+      "short": "Permintaan HTTP"
     },
     "filter": {
       "name": "Penyaring Kondisi",
@@ -131,7 +136,8 @@
           "lessThan": "Lebih Kecil Dari (<)",
           "exists": "Ada & Tidak Bernilai Null"
         }
-      }
+      },
+      "short": "Filter"
     }
   },
   "validation": {
@@ -155,7 +161,15 @@
     "status": "Status",
     "inputPayload": "Payload Pemicu",
     "stepLogs": "Rincian Langkah",
-    "noExecutions": "Belum ada catatan eksekusi. Jalankan uji eksekusi untuk melihat hasil langsung."
+    "noExecutions": "Belum ada catatan eksekusi. Jalankan uji eksekusi untuk melihat hasil langsung.",
+    "subtitle": "Eksekusi alur kerja ini, terbaru lebih dulu",
+    "refresh": "Muat ulang riwayat",
+    "replay": "Putar ulang di kanvas",
+    "selectPrompt": "Pilih eksekusi untuk melihat langkah-langkahnya.",
+    "noSteps": "Tidak ada telemetri langkah untuk eksekusi ini.",
+    "output": "Keluaran",
+    "error": "Kesalahan",
+    "back": "Semua eksekusi"
   },
   "webhookConsole": {
     "title": "Konsol Ingesti Webhook",
@@ -169,7 +183,14 @@
     "streamOnCanvas": "Lihat Live Stream di Kanvas",
     "responseStatus": "Status Respons HTTP",
     "copyUrl": "Salin URL Webhook",
-    "invalidJson": "Format JSON tidak valid"
+    "invalidJson": "Format JSON tidak valid",
+    "copied": "URL endpoint tersalin",
+    "secretHeader": "Header rahasia",
+    "accepted": "HTTP 202 diterima dalam {ms}ms",
+    "returned": "Webhook mengembalikan HTTP {status}",
+    "networkError": "Kesalahan jaringan saat mengirim webhook.",
+    "async": "Asinkron · HTTP 202",
+    "executionId": "ID eksekusi: {id}"
   },
   "settingsPage": {
     "title": "Pengaturan Ruang Kerja & Paket",
@@ -182,7 +203,102 @@
     "workflowsQuota": "Kuota Alur Kerja",
     "executionsQuota": "Eksekusi Bulanan",
     "concurrencyQuota": "Pekerja Bersamaan",
-    "retentionQuota": "Masa Retensi Data"
+    "retentionQuota": "Masa Retensi Data",
+    "metaTitle": "Pengaturan",
+    "tabs": {
+      "overview": "Paket & penggunaan",
+      "team": "Tim",
+      "security": "Keamanan",
+      "permissions": "Hak akses"
+    },
+    "plan": "Paket {tier}",
+    "unlimited": "Tanpa batas",
+    "usageOf": "{used} dari {limit}",
+    "workflowsHint": "Alur kerja aktif di ruang kerja ini",
+    "executionsHint": "Eksekusi yang tercatat pada siklus tagihan ini",
+    "maxDuration": "Durasi eksekusi maksimum",
+    "maxDurationHint": "Per eksekusi sebelum batas waktu",
+    "retentionHint": "Riwayat eksekusi dipangkas setelah periode ini",
+    "days": "{count} hari",
+    "features": {
+      "title": "Fitur paket",
+      "customDomain": "Domain webhook kustom",
+      "hardwareKms": "KMS perangkat keras",
+      "included": "Termasuk",
+      "notIncluded": "Tidak termasuk"
+    },
+    "persona": "Persona aktif",
+    "personaHint": "Demo: ganti peran untuk meninjau RBAC di seluruh aplikasi.",
+    "teamHint": "Orang yang memiliki akses ke ruang kerja ini.",
+    "assumeRole": "Gunakan peran",
+    "you": "Anda",
+    "securityHint": "Pengamanan yang diterapkan pada setiap eksekusi.",
+    "security": {
+      "ssrf": {
+        "title": "Penjaga egress anti-SSRF",
+        "body": "Langkah HTTP dan webhook dikarantina. Permintaan ke localhost, CIDR privat, dan endpoint metadata cloud diblokir.",
+        "status": "Aktif"
+      },
+      "vault": {
+        "title": "Enkripsi brankas AES-256-GCM",
+        "body": "Rahasia dienkripsi dengan GCM 256-bit terautentikasi, IV acak 96-bit, dan tag autentikasi 128-bit.",
+        "status": "Diterapkan"
+      },
+      "signatures": {
+        "title": "Verifikasi tanda tangan webhook",
+        "body": "Webhook Stripe dan GitHub diverifikasi dengan perbandingan waktu-konstan dan jendela replay 300 detik.",
+        "status": "Aktif"
+      },
+      "rateLimit": {
+        "title": "Pembatasan laju per penyewa",
+        "body": "Rute ingesti memakai token bucket per IP dan ruang kerja. Lonjakan melebihi kapasitas mendapat HTTP 429 dengan Retry-After.",
+        "status": "60 req/menit"
+      }
+    },
+    "permissionsTitle": "Hak akses peran",
+    "permissionsHint": "Apa yang dapat dilakukan setiap peran di ruang kerja ini.",
+    "permission": "Hak akses",
+    "yourAccess": "Akses Anda",
+    "allowed": "Diizinkan",
+    "denied": "Tidak diizinkan",
+    "permissions": {
+      "workflowCreate": {
+        "label": "Membuat alur kerja",
+        "description": "Merancang pipeline dan pemicu baru"
+      },
+      "workflowEdit": {
+        "label": "Mengedit kanvas",
+        "description": "Mengubah langkah, koneksi, dan konfigurasi"
+      },
+      "workflowPublish": {
+        "label": "Memublikasikan alur kerja",
+        "description": "Menerapkan alur kerja ke antrean aktif"
+      },
+      "workflowDelete": {
+        "label": "Menghapus alur kerja",
+        "description": "Menghapus alur kerja secara permanen"
+      },
+      "workflowExecute": {
+        "label": "Menjalankan alur kerja",
+        "description": "Mengirim uji eksekusi dan pemicu webhook"
+      },
+      "executionRetry": {
+        "label": "Mengulangi eksekusi gagal",
+        "description": "Mengantrekan ulang eksekusi yang gagal"
+      },
+      "credentialCreate": {
+        "label": "Menulis ke brankas",
+        "description": "Menyimpan kredensial terenkripsi"
+      },
+      "credentialView": {
+        "label": "Membaca brankas",
+        "description": "Melihat nama kredensial dan nilai tersamar"
+      },
+      "workspaceManage": {
+        "label": "Mengelola ruang kerja",
+        "description": "Kuota, paket, dan akses anggota"
+      }
+    }
   },
   "auth": {
     "signInTab": "Masuk",
@@ -214,6 +330,472 @@
     "authenticatingStep3": "Menghubungkan ke dashboard ruang kerja...",
     "registeringStep1": "Membuat ruang kerja & meng-hash kata sandi...",
     "registeringStep2": "Menginisialisasi vault AES-256 & worker DAG...",
-    "redirecting": "Mengalihkan..."
+    "redirecting": "Mengalihkan...",
+    "metaTitle": "Masuk",
+    "brandTitle": "Otomasi yang terlihat.",
+    "brandSubtitle": "Rancang alur kerja DAG secara visual, jalankan di worker terdistribusi, dan saksikan setiap langkah selesai secara langsung.",
+    "points": {
+      "visual": "Editor DAG visual dengan validasi bebas siklus",
+      "live": "Telemetri eksekusi langsung dialirkan ke kanvas",
+      "vault": "Brankas kredensial terenkripsi AES-256-GCM"
+    },
+    "showPassword": "Tampilkan kata sandi",
+    "hidePassword": "Sembunyikan kata sandi",
+    "capsLock": "Caps Lock aktif",
+    "nameRequired": "Masukkan nama lengkap Anda.",
+    "emailInvalid": "Masukkan email kerja yang valid.",
+    "passwordTooShort": "Kata sandi minimal 8 karakter.",
+    "welcomeBack": "Selamat datang kembali, {name}!",
+    "accountCreated": "Ruang kerja {workspace} siap digunakan.",
+    "authFailed": "Autentikasi gagal.",
+    "networkError": "Terjadi kesalahan. Periksa koneksi Anda lalu coba lagi.",
+    "demoFilled": "Kredensial demo untuk {email} telah diisi",
+    "demo": {
+      "owner": "Pemilik",
+      "editor": "Editor",
+      "viewer": "Peninjau"
+    },
+    "freeTier": "Termasuk paket gratis",
+    "freeTierHint": "Mesin DAG, brankas terenkripsi, dan worker antrean."
+  },
+  "ui": {
+    "copy": "Salin",
+    "copied": "Tersalin",
+    "typeToConfirm": "Ketik <value></value> untuk konfirmasi",
+    "previous": "Sebelumnya",
+    "next": "Berikutnya",
+    "pageOf": "Halaman {page} dari {total}",
+    "rangeOf": "{from}–{to} dari {total}",
+    "noResults": "Tidak ada hasil",
+    "clearFilters": "Hapus filter",
+    "close": "Tutup",
+    "more": "Lainnya",
+    "loading": "Memuat…",
+    "skipToContent": "Lompat ke konten"
+  },
+  "status": {
+    "PENDING": "Dalam antrean",
+    "RUNNING": "Berjalan",
+    "SUCCESS": "Berhasil",
+    "FAILED": "Gagal",
+    "DRAFT": "Draf",
+    "PUBLISHED": "Dipublikasikan",
+    "DISABLED": "Dinonaktifkan"
+  },
+  "nav": {
+    "main": "Navigasi utama",
+    "workflows": "Alur Kerja",
+    "executions": "Eksekusi",
+    "vault": "Brankas",
+    "settings": "Pengaturan",
+    "collapse": "Ciutkan sidebar",
+    "expand": "Bentangkan sidebar",
+    "newWorkflow": "Alur kerja baru",
+    "home": "Beranda NexusFlow"
+  },
+  "shell": {
+    "search": "Cari atau lompat ke…",
+    "searchShort": "Cari",
+    "commandTitle": "Menu perintah",
+    "commandDescription": "Cari halaman, alur kerja, dan aksi",
+    "commandPlaceholder": "Ketik perintah atau cari…",
+    "commandEmpty": "Tidak ditemukan.",
+    "groups": {
+      "navigation": "Navigasi",
+      "workflows": "Alur Kerja",
+      "actions": "Aksi",
+      "preferences": "Preferensi",
+      "account": "Akun"
+    },
+    "themeLight": "Terang",
+    "themeDark": "Gelap",
+    "themeSystem": "Sistem",
+    "toggleTheme": "Ganti tema",
+    "switchLanguage": "Ganti bahasa ke {language}",
+    "switchRole": "Ganti peran ke {role}",
+    "status": {
+      "operational": "Semua sistem normal",
+      "degraded": "Berjalan dengan penyimpanan cadangan",
+      "offline": "Status tidak tersedia",
+      "checking": "Memeriksa status…"
+    }
+  },
+  "account": {
+    "signIn": "Masuk",
+    "register": "Buat akun",
+    "signOut": "Keluar",
+    "menu": "Menu akun",
+    "roleTester": "Penguji peran demo",
+    "roles": {
+      "OWNER": "Pemilik",
+      "ADMIN": "Admin",
+      "MEMBER": "Anggota",
+      "VIEWER": "Peninjau"
+    },
+    "workspaceSettings": "Pengaturan ruang kerja",
+    "switchAccount": "Ganti akun",
+    "roleSwitched": "Beralih ke {role} ({name})",
+    "roleSwitchFailed": "Gagal mengganti peran.",
+    "signedOut": "Anda telah keluar."
+  },
+  "dashboard": {
+    "metaTitle": "Alur Kerja",
+    "welcome": "Selamat datang kembali, {name}",
+    "welcomeGuest": "Selamat datang di NexusFlow",
+    "subtitle": "Rancang, jalankan, dan pantau pipeline otomasi Anda.",
+    "newWorkflow": "Alur kerja baru",
+    "viewRuns": "Lihat eksekusi",
+    "kpi": {
+      "workflows": "Alur kerja",
+      "workflowsHint": "{published} dipublikasikan",
+      "runs": "Eksekusi",
+      "runsHint": "7 hari terakhir",
+      "successRate": "Tingkat keberhasilan",
+      "successRateHint": "Dari {count} eksekusi",
+      "avgDuration": "Durasi rata-rata",
+      "avgDurationHint": "Ujung ke ujung per eksekusi",
+      "noData": "Belum ada eksekusi",
+      "trendLabel": "Eksekusi per hari, 7 hari terakhir",
+      "dayValue": "{day}: {count} eksekusi"
+    },
+    "workflowsTitle": "Alur Kerja",
+    "searchPlaceholder": "Cari alur kerja…",
+    "searchLabel": "Cari alur kerja",
+    "filterLabel": "Filter berdasarkan status",
+    "filter": {
+      "all": "Semua",
+      "published": "Dipublikasikan",
+      "draft": "Draf",
+      "disabled": "Nonaktif"
+    },
+    "sortLabel": "Urutkan alur kerja",
+    "sort": {
+      "updated": "Terakhir diperbarui",
+      "name": "Nama",
+      "nodes": "Langkah terbanyak"
+    },
+    "viewLabel": "Tata letak",
+    "view": {
+      "grid": "Kisi",
+      "list": "Daftar"
+    },
+    "steps": "{count} langkah",
+    "updated": "Diperbarui {time}",
+    "lastRun": "Eksekusi terakhir",
+    "neverRun": "Belum pernah dijalankan",
+    "open": "Buka",
+    "openWorkflow": "Buka {name}",
+    "noDescription": "Tanpa deskripsi",
+    "noMatches": "Tidak ada alur kerja yang cocok",
+    "noMatchesHint": "Coba kata kunci lain atau hapus filter.",
+    "emptyTitle": "Buat alur kerja pertama Anda",
+    "emptyHint": "Mulai dari templat atau kanvas kosong.",
+    "activityTitle": "Aktivitas terbaru",
+    "activityEmpty": "Eksekusi akan muncul di sini setelah alur kerja dijalankan.",
+    "viewAll": "Lihat semua",
+    "graphLabel": "Graf alur kerja dengan {count} langkah",
+    "columns": {
+      "name": "Nama",
+      "status": "Status",
+      "steps": "Langkah",
+      "lastRun": "Eksekusi terakhir",
+      "updated": "Diperbarui"
+    }
+  },
+  "templates": {
+    "title": "Buat alur kerja",
+    "description": "Mulai dari templat atau kanvas kosong.",
+    "blank": "Kanvas kosong",
+    "blankHint": "Mulai dengan graf kosong lalu tambahkan pemicu.",
+    "steps": "{count} langkah",
+    "opening": "Membuka editor…"
+  },
+  "runs": {
+    "metaTitle": "Eksekusi",
+    "title": "Eksekusi",
+    "subtitle": "Riwayat eksekusi dan telemetri per langkah di semua alur kerja.",
+    "refresh": "Muat ulang",
+    "liveCount": "{count} berjalan",
+    "kpi": {
+      "total": "Total eksekusi",
+      "totalHint": "50 terbaru",
+      "successRate": "Tingkat keberhasilan",
+      "avgDuration": "Durasi rata-rata",
+      "failed": "Gagal",
+      "failedHint": "Perlu perhatian",
+      "running": "{count} sedang berjalan"
+    },
+    "searchPlaceholder": "Cari ID eksekusi atau alur kerja…",
+    "searchLabel": "Cari eksekusi",
+    "statusFilter": "Filter berdasarkan status",
+    "all": "Semua",
+    "allWorkflows": "Semua alur kerja",
+    "workflowFilter": "Filter berdasarkan alur kerja",
+    "columns": {
+      "status": "Status",
+      "run": "Eksekusi",
+      "workflow": "Alur kerja",
+      "started": "Dimulai",
+      "duration": "Durasi",
+      "steps": "Langkah"
+    },
+    "actions": "Aksi eksekusi",
+    "retry": "Ulangi",
+    "retrying": "Mengulangi…",
+    "retried": "Pengulangan diantrekan sebagai {id}",
+    "retryFailed": "Gagal mengulangi eksekusi ini.",
+    "viewDetails": "Lihat detail",
+    "openInEditor": "Buka di editor",
+    "replayInEditor": "Putar ulang di editor",
+    "copyId": "Salin ID eksekusi",
+    "emptyTitle": "Belum ada eksekusi",
+    "emptyHint": "Jalankan uji eksekusi atau kirim webhook untuk melihat eksekusi di sini.",
+    "noMatches": "Tidak ada eksekusi yang cocok",
+    "stepsSummary": "{ok}/{total} berhasil",
+    "durationOf": "{value} dari eksekusi terlama",
+    "detail": {
+      "title": "Detail eksekusi",
+      "started": "Dimulai",
+      "duration": "Durasi",
+      "workflow": "Alur kerja",
+      "steps": "Langkah",
+      "trigger": "Payload pemicu",
+      "output": "Keluaran",
+      "error": "Kesalahan",
+      "noSteps": "Tidak ada telemetri langkah untuk eksekusi ini.",
+      "showOutput": "Tampilkan keluaran",
+      "hideOutput": "Sembunyikan keluaran",
+      "streaming": "Menerima pembaruan langsung…",
+      "step": "Langkah {n}"
+    }
+  },
+  "vault": {
+    "metaTitle": "Brankas",
+    "title": "Brankas",
+    "subtitle": "Kredensial terenkripsi yang dirujuk alur kerja Anda saat runtime.",
+    "newCredential": "Kredensial baru",
+    "howItWorksTitle": "Enkripsi AES-256-GCM",
+    "howItWorks": "Setiap rahasia dienkripsi dengan IV 96-bit unik dan hanya didekripsi di dalam worker saat eksekusi. Rujuk di langkah mana pun dengan <code>{ref}</code>.",
+    "searchPlaceholder": "Cari kredensial…",
+    "searchLabel": "Cari kredensial",
+    "allTypes": "Semua tipe",
+    "typeFilter": "Filter berdasarkan tipe",
+    "types": {
+      "api_key": "Kunci API",
+      "bearer_token": "Token bearer",
+      "oauth_secret": "Rahasia OAuth",
+      "webhook_secret": "Rahasia webhook"
+    },
+    "created": "Dibuat {time}",
+    "copyReference": "Salin referensi",
+    "referenceCopied": "{ref} tersalin",
+    "delete": "Hapus kredensial",
+    "deleteNamed": "Hapus {name}",
+    "deleteTitle": "Hapus {name}?",
+    "deleteDescription": "Alur kerja yang merujuk kredensial ini akan gagal sampai diganti. Tindakan ini tidak dapat dibatalkan.",
+    "deleted": "{name} dihapus.",
+    "deleteFailed": "Gagal menghapus kredensial.",
+    "emptyTitle": "Belum ada kredensial",
+    "emptyHint": "Simpan kunci API atau token agar dapat dirujuk dengan aman dari langkah alur kerja.",
+    "noMatches": "Tidak ada kredensial yang cocok",
+    "count": "{count} kredensial",
+    "permissionRequired": "Peran Anda tidak dapat mengelola kredensial.",
+    "form": {
+      "title": "Kredensial baru",
+      "description": "Nilai dienkripsi sebelum disimpan.",
+      "name": "Nama",
+      "nameHint": "Huruf besar, angka, dan garis bawah. Dirujuk sebagai {ref}.",
+      "nameError": "Gunakan huruf besar, angka, dan garis bawah, diawali huruf.",
+      "type": "Tipe",
+      "value": "Nilai rahasia",
+      "valuePlaceholder": "Tempel rahasia untuk dienkripsi",
+      "valueError": "Masukkan nilai rahasia.",
+      "show": "Tampilkan rahasia",
+      "hide": "Sembunyikan rahasia",
+      "submit": "Enkripsi & simpan",
+      "created": "{name} dienkripsi dan disimpan.",
+      "failed": "Gagal menyimpan kredensial."
+    }
+  },
+  "errors": {
+    "notFoundTitle": "Halaman tidak ditemukan",
+    "notFoundBody": "Halaman yang Anda cari tidak ada atau telah dipindahkan.",
+    "goHome": "Kembali ke alur kerja",
+    "errorTitle": "Terjadi kesalahan",
+    "errorBody": "Terjadi kesalahan tak terduga saat memuat halaman ini.",
+    "retry": "Coba lagi"
+  },
+  "editor": {
+    "untitled": "Alur kerja tanpa judul",
+    "back": "Kembali ke alur kerja",
+    "rename": "Ganti nama alur kerja",
+    "nameLabel": "Nama alur kerja",
+    "saved": "Tersimpan",
+    "unsaved": "Perubahan belum disimpan",
+    "saving": "Menyimpan…",
+    "save": "Simpan",
+    "publish": "Publikasikan",
+    "publishing": "Mempublikasikan…",
+    "run": {
+      "title": "Linimasa eksekusi",
+      "idle": "Belum ada eksekusi. Tekan Uji eksekusi untuk menyimulasikan alur kerja.",
+      "progress": "{done} dari {total} langkah",
+      "tier": "Tingkat {n}",
+      "logs": "Log",
+      "noLogs": "Peristiwa eksekusi akan muncul di sini.",
+      "clear": "Bersihkan",
+      "collapse": "Ciutkan linimasa",
+      "expand": "Bentangkan linimasa"
+    },
+    "running": "Berjalan…",
+    "runOptions": "Opsi eksekusi lainnya",
+    "testRunHint": "Simulasikan DAG di kanvas",
+    "dispatch": "Kirim ke antrean",
+    "dispatchHint": "Jalankan di worker BullMQ dan alirkan progres langsung",
+    "webhookConsole": "Konsol webhook",
+    "history": "Riwayat eksekusi",
+    "more": "Aksi lainnya",
+    "autoLayout": "Tata letak otomatis",
+    "export": "Ekspor JSON",
+    "import": "Impor JSON",
+    "templates": "Templat",
+    "shortcuts": "Pintasan keyboard",
+    "clearRun": "Bersihkan status eksekusi",
+    "readOnly": "Hanya lihat",
+    "readOnlyHint": "Peran Anda dapat melihat alur kerja ini tetapi tidak dapat menyimpan perubahan.",
+    "publishRequires": "Publikasi memerlukan peran Admin atau Pemilik.",
+    "cycle": "Siklus terdeteksi",
+    "cycleHint": "Hapus koneksi yang disorot untuk memulihkan DAG yang valid.",
+    "toolbar": {
+      "label": "Alat kanvas",
+      "addStep": "Tambah langkah",
+      "undo": "Urungkan",
+      "redo": "Ulangi",
+      "fit": "Sesuaikan layar",
+      "zoomIn": "Perbesar",
+      "zoomOut": "Perkecil",
+      "layout": "Tata letak otomatis",
+      "runPanel": "Linimasa eksekusi"
+    },
+    "picker": {
+      "title": "Tambah langkah",
+      "placeholder": "Cari langkah…",
+      "empty": "Tidak ada langkah yang cocok",
+      "groups": {
+        "triggers": "Pemicu",
+        "actions": "Aksi",
+        "logic": "Logika"
+      }
+    },
+    "palette": {
+      "title": "Langkah",
+      "search": "Cari langkah…",
+      "collapse": "Ciutkan panel",
+      "expand": "Bentangkan panel",
+      "hint": "Tarik ke kanvas, atau tekan Enter untuk menambahkan."
+    },
+    "empty": {
+      "title": "Mulai dengan pemicu",
+      "body": "Setiap alur kerja dimulai dengan pemicu. Tambahkan satu, lalu hubungkan aksi dan filter di bawahnya.",
+      "browse": "Jelajahi templat"
+    },
+    "node": {
+      "duplicate": "Duplikat",
+      "delete": "Hapus",
+      "test": "Uji langkah",
+      "inCycle": "Dalam siklus",
+      "duration": "Durasi",
+      "error": "Kesalahan",
+      "insert": "Sisipkan langkah di sini",
+      "deleteEdge": "Hapus koneksi",
+      "added": "{label} ditambahkan",
+      "deleted": "Langkah dihapus",
+      "undo": "Urungkan",
+      "selected": "{label} dipilih"
+    },
+    "inspector": {
+      "title": "Pengaturan langkah",
+      "close": "Tutup panel",
+      "resize": "Ubah ukuran panel",
+      "tabs": {
+        "configure": "Konfigurasi",
+        "test": "Uji",
+        "variables": "Variabel"
+      },
+      "label": "Nama",
+      "description": "Deskripsi",
+      "parameters": "Parameter",
+      "invalidJson": "JSON tidak valid — disimpan sebagai teks sampai diperbaiki.",
+      "sandboxTitle": "Sandbox langkah",
+      "sandboxHint": "Jalankan langkah ini secara terpisah dengan data contoh sebelum menjalankan seluruh alur kerja.",
+      "runTest": "Jalankan uji langkah",
+      "testing": "Menguji…",
+      "pingWebhook": "Ping webhook",
+      "response": "Respons",
+      "status": "Status",
+      "lastRun": "Eksekusi terakhir",
+      "noRunYet": "Langkah ini belum pernah dijalankan.",
+      "variablesHint": "Klik referensi untuk menyalinnya, atau ketik {open} di bidang JSON mana pun untuk saran.",
+      "triggerVars": "Payload pemicu",
+      "upstreamVars": "Langkah hulu",
+      "noUpstream": "Belum ada langkah hulu — hubungkan satu di atas langkah ini.",
+      "vaultVars": "Rahasia brankas",
+      "noVault": "Belum ada kredensial di brankas.",
+      "from": "Dari {label}",
+      "copied": "{ref} tersalin",
+      "deleteStep": "Hapus langkah",
+      "stepTestDone": "Uji langkah selesai dalam {ms}ms",
+      "stepTestFailed": "Uji langkah gagal",
+      "webhookAccepted": "Webhook diterima (HTTP 202)",
+      "webhookReturned": "Webhook mengembalikan HTTP {status}",
+      "webhookUnreachable": "Tidak dapat menjangkau rute webhook."
+    },
+    "confirm": {
+      "templateTitle": "Ganti kanvas dengan templat ini?",
+      "templateBody": "Langkah Anda saat ini akan diganti. Anda dapat mengurungkannya.",
+      "templateConfirm": "Ganti",
+      "importTitle": "Ganti kanvas dengan berkas yang diimpor?",
+      "importBody": "Langkah Anda saat ini akan diganti. Anda dapat mengurungkannya.",
+      "importConfirm": "Impor",
+      "leaveTitle": "Buang perubahan yang belum disimpan?",
+      "leaveBody": "Ada perubahan yang belum disimpan.",
+      "leaveConfirm": "Buang & keluar"
+    },
+    "tip": {
+      "mobile": "Tips: cubit untuk memperbesar dan ketuk langkah untuk mengeditnya. Layar lebih besar memberi editor lengkap.",
+      "dismiss": "Tutup tips"
+    },
+    "shortcutsList": {
+      "save": "Simpan",
+      "run": "Uji eksekusi",
+      "undo": "Urungkan",
+      "redo": "Ulangi",
+      "add": "Tambah langkah",
+      "duplicate": "Duplikat langkah",
+      "delete": "Hapus pilihan",
+      "deselect": "Tutup panel / batalkan pilihan",
+      "help": "Tampilkan pintasan",
+      "fit": "Sesuaikan layar"
+    },
+    "toasts": {
+      "layout": "Tata letak dirapikan",
+      "exported": "Alur kerja diekspor sebagai JSON",
+      "imported": "Alur kerja diimpor",
+      "importInvalid": "Berkas tidak valid: node atau edge tidak ada.",
+      "importCycle": "Impor ditolak: berkas mengandung siklus.",
+      "importParse": "Tidak dapat membaca berkas JSON tersebut.",
+      "templateLoaded": "Templat dimuat: {name}",
+      "replay": "Memutar ulang eksekusi {id}",
+      "runComplete": "Semua langkah selesai sesuai urutan topologis.",
+      "enqueueing": "Memasukkan job ke antrean…",
+      "queued": "Job diantrekan ({mode}). Mengalirkan telemetri langsung…",
+      "queueFailed": "Gagal memasukkan alur kerja ke antrean.",
+      "streamDone": "Eksekusi selesai dengan sukses",
+      "streamFailed": "Eksekusi selesai dengan kesalahan",
+      "streamConnecting": "Menghubungkan ke aliran langsung untuk {id}…",
+      "executionId": "ID eksekusi: {id}",
+      "publishFailed": "Gagal memublikasikan alur kerja",
+      "dispatchFailed": "Pengiriman gagal"
+    }
   }
 }
