@@ -1,49 +1,70 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { AnimatePresence, motion } from "motion/react";
 import {
-  Save,
-  Play,
-  RotateCcw,
-  CheckCircle2,
   AlertTriangle,
   ArrowLeft,
-  Workflow as WorkflowIcon,
-  Loader2,
-  LayoutGrid,
+  Check,
+  ChevronDown,
   Download,
-  Upload,
+  Eraser,
+  Eye,
+  History,
+  Keyboard,
   Layers,
-  Zap,
+  LayoutGrid,
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  Play,
   Radio,
-  SlidersHorizontal,
+  Rocket,
+  Save,
+  Upload,
+  Workflow as WorkflowIcon,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Kbd } from "@/components/ui/misc";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { Link } from "@/i18n/routing";
+import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { NexusLogoMark } from "@/components/brand/logo";
-import { SessionUser } from "@/lib/services/auth-service";
+import { WorkflowStatusBadge } from "@/components/patterns/status-badge";
+import type { SessionUser } from "@/lib/services/auth-service";
 import { UserNav } from "@/components/auth/user-nav";
 import { hasPermission } from "@/lib/auth/rbac";
+import { WORKFLOW_TEMPLATES } from "@/lib/dag/templates";
+import { cn } from "@/lib/utils";
+
+export type SaveState = "saved" | "unsaved" | "saving";
 
 interface WorkflowNavbarProps {
-  workflowId: string;
   workflowName: string;
   workflowStatus: "DRAFT" | "PUBLISHED" | "DISABLED";
+  saveState: SaveState;
   isSaving: boolean;
   isPublishing?: boolean;
   isExecuting: boolean;
   hasCycleError: boolean;
   session?: SessionUser | null;
+  modKey: string;
+  onBack: () => void;
   onNameChange: (newName: string) => void;
   onSave: () => void;
   onPublish?: () => void;
@@ -56,17 +77,47 @@ interface WorkflowNavbarProps {
   onExportJSON?: () => void;
   onImportJSON?: () => void;
   onSelectTemplate?: (templateId: string) => void;
+  onOpenShortcuts: () => void;
+}
+
+function SaveIndicator({ state }: { state: SaveState }) {
+  const t = useTranslations("editor");
+  return (
+    <span className="hidden items-center gap-1.5 text-xs text-fg-subtle md:inline-flex" role="status" aria-live="polite">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={state}
+          initial={{ opacity: 0, y: 3 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -3 }}
+          transition={{ duration: 0.15 }}
+          className="inline-flex items-center gap-1.5"
+        >
+          {state === "saving" && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
+          {state === "saved" && (
+            <svg viewBox="0 0 24 24" className="nf-check size-3.5 text-success" fill="none" aria-hidden>
+              <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+          {state === "unsaved" && <span className="size-1.5 rounded-full bg-warning" aria-hidden />}
+          {state === "saving" ? t("saving") : state === "saved" ? t("saved") : t("unsaved")}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
 }
 
 export function WorkflowNavbar({
-  workflowId,
   workflowName,
   workflowStatus,
+  saveState,
   isSaving,
   isPublishing = false,
   isExecuting,
   hasCycleError,
   session,
+  modKey,
+  onBack,
   onNameChange,
   onSave,
   onPublish,
@@ -79,407 +130,285 @@ export function WorkflowNavbar({
   onExportJSON,
   onImportJSON,
   onSelectTemplate,
+  onOpenShortcuts,
 }: WorkflowNavbarProps) {
-  const t = useTranslations("common");
-  const tWorkflow = useTranslations("workflow");
+  const t = useTranslations("editor");
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(workflowName);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const canEdit = session ? hasPermission(session.role, "workflow:edit") : true;
   const canPublish = session ? hasPermission(session.role, "workflow:publish") : true;
+  const runDisabled = isExecuting || isSaving || hasCycleError;
 
-  function handleNameBlur() {
+  useEffect(() => {
+    if (!isEditingName) setTempName(workflowName);
+  }, [workflowName, isEditingName]);
+
+  useEffect(() => {
+    if (isEditingName) inputRef.current?.select();
+  }, [isEditingName]);
+
+  function commitName() {
     setIsEditingName(false);
-    if (tempName.trim()) {
-      onNameChange(tempName.trim());
-    } else {
-      setTempName(workflowName);
-    }
+    if (tempName.trim()) onNameChange(tempName.trim());
+    else setTempName(workflowName);
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      handleNameBlur();
-    } else if (e.key === "Escape") {
-      setTempName(workflowName);
-      setIsEditingName(false);
-    }
-  }
+  const templatesMenu = onSelectTemplate ? (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        <Layers aria-hidden /> {t("templates")}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="w-64">
+        {WORKFLOW_TEMPLATES.map((tpl) => (
+          <DropdownMenuItem key={tpl.id} onSelect={() => onSelectTemplate(tpl.id)}>
+            <WorkflowIcon aria-hidden />
+            <span className="truncate">{tpl.name}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  ) : null;
 
   return (
-    <header className="h-14 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md px-3 sm:px-4 flex items-center justify-between z-30 select-none gap-2">
-      {/* Left: Brand + Breadcrumb + Workflow Title */}
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-        <Link
-          href={`/`}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-300 hover:text-zinc-100 hover:border-zinc-700 transition-colors"
-          title={t("back")}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
+    <header className="pt-safe z-30 shrink-0 border-b border-line bg-overlay/85 backdrop-blur-xl">
+      <div className="flex h-14 items-center gap-2 px-2 sm:px-3">
+        {/* Left: back, brand, name, status */}
+        <Tooltip content={t("back")}>
+          <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label={t("back")}>
+            <ArrowLeft aria-hidden />
+          </Button>
+        </Tooltip>
+        <span className="group hidden md:inline-flex">
+          <NexusLogoMark size={24} animated />
+        </span>
+        <span className="mx-1 hidden h-5 w-px bg-line md:block" aria-hidden />
 
-        <div className="h-4 w-px bg-zinc-800 shrink-0 hidden sm:block" />
-
-        <div className="flex items-center gap-2 min-w-0">
-          <NexusLogoMark size={26} animated />
-
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {isEditingName ? (
             <input
+              ref={inputRef}
               type="text"
               value={tempName}
+              aria-label={t("nameLabel")}
               onChange={(e) => setTempName(e.target.value)}
-              onBlur={handleNameBlur}
-              onKeyDown={handleKeyDown}
-              autoFocus
-              className="h-7 w-32 sm:w-48 md:w-64 rounded border border-emerald-500 bg-zinc-900 px-2 text-xs font-semibold text-zinc-100 focus:outline-none"
+              onBlur={commitName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitName();
+                else if (e.key === "Escape") {
+                  e.stopPropagation();
+                  setTempName(workflowName);
+                  setIsEditingName(false);
+                }
+              }}
+              className="h-8 w-full min-w-0 max-w-xs rounded-lg border border-accent bg-surface px-2.5 text-sm font-medium text-fg outline-none ring-3 ring-accent/20"
             />
           ) : (
-            <div
-              onClick={() => setIsEditingName(true)}
-              className="group flex items-center gap-1.5 cursor-pointer min-w-0"
-              title="Click to edit name"
+            <button
+              type="button"
+              onClick={() => canEdit && setIsEditingName(true)}
+              disabled={!canEdit}
+              aria-label={`${t("rename")}: ${workflowName || t("untitled")}`}
+              className="group flex min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-surface-2 disabled:hover:bg-transparent"
             >
-              <span className="text-xs font-semibold text-zinc-100 group-hover:text-emerald-400 transition-colors truncate max-w-[100px] xs:max-w-[130px] sm:max-w-[180px] md:max-w-[260px] lg:max-w-[340px]">
-                {workflowName || tWorkflow("untitled")}
-              </span>
-            </div>
+              <span className="truncate text-sm font-semibold text-fg">{workflowName || t("untitled")}</span>
+              {canEdit && <Pencil className="size-3.5 shrink-0 text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />}
+            </button>
           )}
-
-          <Badge
-            variant={
-              workflowStatus === "PUBLISHED"
-                ? "default"
-                : workflowStatus === "DISABLED"
-                ? "failed"
-                : "neutral"
-            }
-            className="hidden sm:inline-flex shrink-0 text-[10px] py-0 px-1.5"
-          >
-            {tWorkflow(`status.${workflowStatus.toLowerCase()}`)}
-          </Badge>
-
+          <WorkflowStatusBadge status={workflowStatus} className="hidden sm:inline-flex" />
+          {!canEdit && (
+            <Tooltip content={t("readOnlyHint")}>
+              <Badge variant="outline" className="hidden sm:inline-flex" tabIndex={0}>
+                <Eye className="size-3" aria-hidden /> {t("readOnly")}
+              </Badge>
+            </Tooltip>
+          )}
           {hasCycleError && (
-            <div className="flex items-center gap-1 rounded bg-rose-500/10 border border-rose-500/30 px-1.5 sm:px-2 py-0.5 text-[10px] font-medium text-rose-400 shrink-0">
-              <AlertTriangle className="h-3 w-3 shrink-0" />
-              <span className="hidden xs:inline">Cycle Detected</span>
-            </div>
+            <Tooltip content={t("cycleHint")}>
+              <Badge variant="failed" className="shrink-0" tabIndex={0}>
+                <AlertTriangle className="size-3 text-failed" aria-hidden />
+                <span className="hidden xs:inline">{t("cycle")}</span>
+              </Badge>
+            </Tooltip>
+          )}
+          <SaveIndicator state={saveState} />
+        </div>
+
+        {/* Right: secondary tools (lg+) */}
+        <div className="hidden items-center gap-0.5 lg:flex">
+          {onOpenHistory && (
+            <Tooltip content={t("history")}>
+              <Button variant="ghost" size="icon-sm" onClick={onOpenHistory} aria-label={t("history")}>
+                <History aria-hidden />
+              </Button>
+            </Tooltip>
+          )}
+          {onOpenWebhookConsole && (
+            <Tooltip content={t("webhookConsole")}>
+              <Button variant="ghost" size="icon-sm" onClick={onOpenWebhookConsole} aria-label={t("webhookConsole")}>
+                <Radio aria-hidden />
+              </Button>
+            </Tooltip>
           )}
         </div>
-      </div>
 
-      {/* Right: Actions, Execution & Language Switcher */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        {/* Desktop-Only Tools: Auto-Tidy (visible on xl+) */}
-        {onAutoLayout && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onAutoLayout}
-            className="hidden xl:inline-flex border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 gap-1.5"
-            title="Auto-Layout Hierarchical DAG"
-          >
-            <LayoutGrid className="h-3.5 w-3.5 text-zinc-400" />
-            <span>Auto-Tidy</span>
-          </Button>
-        )}
-
-        {/* Desktop-Only Blueprint & Templates Dropdown (visible on xl+) */}
-        <div className="hidden xl:block">
-          <DropdownMenu>
+        {/* Overflow menu (all sizes) */}
+        <DropdownMenu>
+          <Tooltip content={t("more")}>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 gap-1.5"
-              >
-                <Layers className="h-3.5 w-3.5 text-zinc-400" />
-                <span>Blueprints</span>
+              <Button variant="ghost" size="icon-sm" aria-label={t("more")}>
+                <MoreHorizontal aria-hidden />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 border-zinc-800 bg-zinc-900">
-              {onExportJSON && (
-                <DropdownMenuItem
-                  onClick={onExportJSON}
-                  className="flex items-center gap-2 text-xs py-2 cursor-pointer text-zinc-200"
-                >
-                  <Download className="h-3.5 w-3.5 text-sky-400" />
-                  <span>Export Workflow (JSON)</span>
-                </DropdownMenuItem>
-              )}
-              {onImportJSON && (
-                <DropdownMenuItem
-                  onClick={onImportJSON}
-                  className="flex items-center gap-2 text-xs py-2 cursor-pointer text-zinc-200"
-                >
-                  <Upload className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>Import Workflow (JSON)</span>
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                Preset Templates
-              </div>
-              {onSelectTemplate && (
-                <>
-                  <DropdownMenuItem
-                    onClick={() => onSelectTemplate("customer-enrichment")}
-                    className="flex items-center gap-2 text-xs py-2 cursor-pointer text-zinc-200"
-                  >
-                    <WorkflowIcon className="h-3.5 w-3.5 text-violet-400" />
-                    <span>Customer Onboarding</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => onSelectTemplate("stripe-webhook-ledger")}
-                    className="flex items-center gap-2 text-xs py-2 cursor-pointer text-zinc-200"
-                  >
-                    <WorkflowIcon className="h-3.5 w-3.5 text-amber-400" />
-                    <span>Stripe Inbound Ledger</span>
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {/* Desktop-Only Webhook Simulator Console (visible on xl+) */}
-        {onOpenWebhookConsole && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onOpenWebhookConsole}
-            className="hidden xl:inline-flex border-violet-500/30 bg-violet-950/20 hover:bg-violet-900/30 text-violet-300 gap-1.5"
-            title="Open Inbound Webhook Simulator Console"
-          >
-            <Radio className="h-3.5 w-3.5 text-violet-400" />
-            <span>Webhook Console</span>
-          </Button>
-        )}
-
-        {/* Desktop-Only Telemetry History Logs (visible on xl+) */}
-        {onOpenHistory && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onOpenHistory}
-            className="hidden xl:inline-flex border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 gap-1.5"
-            title="Inspect Execution History & Telemetry"
-          >
-            <RotateCcw className="h-3.5 w-3.5 text-emerald-400" />
-            <span>Telemetry Logs</span>
-          </Button>
-        )}
-
-        {/* Responsive "Tools" Dropdown (Shown on screens < xl to avoid overflowing) */}
-        <div className="xl:hidden">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 gap-1 px-2 sm:px-2.5"
-                title="Secondary DAG Tools & Presets"
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-400" />
-                <span className="hidden sm:inline text-xs">Tools</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 border-zinc-800 bg-zinc-900">
-              {onAutoLayout && (
-                <DropdownMenuItem
-                  onClick={onAutoLayout}
-                  className="flex items-center gap-2 text-xs py-2 cursor-pointer text-zinc-200"
-                >
-                  <LayoutGrid className="h-3.5 w-3.5 text-zinc-400" />
-                  <span>Auto-Tidy DAG</span>
-                </DropdownMenuItem>
-              )}
-
-              {onOpenWebhookConsole && (
-                <DropdownMenuItem
-                  onClick={onOpenWebhookConsole}
-                  className="flex items-center gap-2 text-xs py-2 cursor-pointer text-violet-300"
-                >
-                  <Radio className="h-3.5 w-3.5 text-violet-400" />
-                  <span>Webhook Simulator Console</span>
-                </DropdownMenuItem>
-              )}
-
-              {onOpenHistory && (
-                <DropdownMenuItem
-                  onClick={onOpenHistory}
-                  className="flex items-center gap-2 text-xs py-2 cursor-pointer text-emerald-300"
-                >
-                  <RotateCcw className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>Telemetry Logs</span>
-                </DropdownMenuItem>
-              )}
-
-              {onDispatchQueue && (
-                <DropdownMenuItem
-                  onClick={onDispatchQueue}
-                  disabled={isExecuting || isSaving || hasCycleError}
-                  className="flex sm:hidden items-center gap-2 text-xs py-2 cursor-pointer text-amber-300"
-                >
-                  <Zap className="h-3.5 w-3.5 text-amber-400" />
-                  <span>Dispatch BullMQ Queue</span>
-                </DropdownMenuItem>
-              )}
-
+          </Tooltip>
+          <DropdownMenuContent align="end" className="w-60">
+            {/* Primary actions surface here on small screens */}
+            <div className="sm:hidden">
+              <DropdownMenuItem onSelect={onSave} disabled={isSaving || isExecuting || !canEdit}>
+                <Save aria-hidden /> {t("save")}
+                <DropdownMenuShortcut>{modKey}S</DropdownMenuShortcut>
+              </DropdownMenuItem>
               {onPublish && (
-                <DropdownMenuItem
-                  onClick={onPublish}
-                  disabled={isPublishing || isSaving || hasCycleError}
-                  className="flex md:hidden items-center gap-2 text-xs py-2 cursor-pointer text-violet-300"
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5 text-violet-400" />
-                  <span>{t("publish")}</span>
+                <DropdownMenuItem onSelect={onPublish} disabled={isPublishing || isSaving || hasCycleError || !canPublish}>
+                  <Rocket aria-hidden /> {t("publish")}
                 </DropdownMenuItem>
               )}
-
+              {onDispatchQueue && (
+                <DropdownMenuItem onSelect={onDispatchQueue} disabled={runDisabled}>
+                  <Zap aria-hidden /> {t("dispatch")}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
-
-              {onExportJSON && (
-                <DropdownMenuItem
-                  onClick={onExportJSON}
-                  className="flex items-center gap-2 text-xs py-2 cursor-pointer text-zinc-200"
-                >
-                  <Download className="h-3.5 w-3.5 text-sky-400" />
-                  <span>Export JSON</span>
+            </div>
+            <div className="lg:hidden">
+              {onOpenHistory && (
+                <DropdownMenuItem onSelect={onOpenHistory}>
+                  <History aria-hidden /> {t("history")}
                 </DropdownMenuItem>
               )}
-              {onImportJSON && (
-                <DropdownMenuItem
-                  onClick={onImportJSON}
-                  className="flex items-center gap-2 text-xs py-2 cursor-pointer text-zinc-200"
-                >
-                  <Upload className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>Import JSON</span>
+              {onOpenWebhookConsole && (
+                <DropdownMenuItem onSelect={onOpenWebhookConsole}>
+                  <Radio aria-hidden /> {t("webhookConsole")}
                 </DropdownMenuItem>
               )}
+              <DropdownMenuSeparator />
+            </div>
+            {onAutoLayout && (
+              <DropdownMenuItem onSelect={onAutoLayout}>
+                <LayoutGrid aria-hidden /> {t("autoLayout")}
+              </DropdownMenuItem>
+            )}
+            {templatesMenu}
+            <DropdownMenuSeparator />
+            {onExportJSON && (
+              <DropdownMenuItem onSelect={onExportJSON}>
+                <Download aria-hidden /> {t("export")}
+              </DropdownMenuItem>
+            )}
+            {onImportJSON && (
+              <DropdownMenuItem onSelect={onImportJSON}>
+                <Upload aria-hidden /> {t("import")}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onResetExecution}>
+              <Eraser aria-hidden /> {t("clearRun")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onOpenShortcuts}>
+              <Keyboard aria-hidden /> {t("shortcuts")}
+              <DropdownMenuShortcut>?</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-              {onSelectTemplate && (
-                <>
-                  <DropdownMenuSeparator />
-                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                    Preset Templates
-                  </div>
-                  <DropdownMenuItem
-                    onClick={() => onSelectTemplate("customer-enrichment")}
-                    className="flex items-center gap-2 text-xs py-2 cursor-pointer text-zinc-200"
-                  >
-                    <WorkflowIcon className="h-3.5 w-3.5 text-violet-400" />
-                    <span>Customer Onboarding</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => onSelectTemplate("stripe-webhook-ledger")}
-                    className="flex items-center gap-2 text-xs py-2 cursor-pointer text-zinc-200"
-                  >
-                    <WorkflowIcon className="h-3.5 w-3.5 text-amber-400" />
-                    <span>Stripe Inbound Ledger</span>
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <span className="mx-0.5 hidden h-5 w-px bg-line sm:block" aria-hidden />
+
+        {/* Run split button */}
+        <div className="flex items-center">
+          <Tooltip content={t("testRunHint")} shortcut={<Kbd>{modKey}↵</Kbd>}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onExecuteTest}
+              disabled={runDisabled}
+              className={cn("gap-1.5", onDispatchQueue && "sm:rounded-r-none")}
+            >
+              {isExecuting ? <Loader2 className="animate-spin text-running" aria-hidden /> : <Play className="fill-current text-success" aria-hidden />}
+              <span className="hidden xs:inline">{isExecuting ? t("running") : t("run")}</span>
+              <span className="sr-only xs:hidden">{t("run")}</span>
+            </Button>
+          </Tooltip>
+          {onDispatchQueue && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-label={t("runOptions")}
+                  disabled={runDisabled}
+                  className="hidden w-7 rounded-l-none border-l-0 px-0 sm:inline-flex"
+                >
+                  <ChevronDown aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuLabel>{t("runOptions")}</DropdownMenuLabel>
+                <DropdownMenuItem onSelect={onExecuteTest} className="items-start">
+                  <Play className="mt-0.5" aria-hidden />
+                  <span>
+                    <span className="block font-medium">{t("run")}</span>
+                    <span className="block text-xs text-fg-subtle">{t("testRunHint")}</span>
+                  </span>
+                  <DropdownMenuShortcut>{modKey}↵</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={onDispatchQueue} className="items-start">
+                  <Zap className="mt-0.5" aria-hidden />
+                  <span>
+                    <span className="block font-medium">{t("dispatch")}</span>
+                    <span className="block text-xs text-fg-subtle">{t("dispatchHint")}</span>
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
-        {/* Primary Action 1: Test Run */}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onExecuteTest}
-          disabled={isExecuting || isSaving || hasCycleError}
-          className="border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 shadow-sm px-2.5 sm:px-3 hover:scale-[1.02] active:scale-[0.98] transition-all group"
-          title="Simulate DAG topological execution on canvas"
-        >
-          {isExecuting ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-400" />
-              <span className="hidden sm:inline">{t("testing")}</span>
-            </>
-          ) : (
-            <>
-              <Play className="h-3.5 w-3.5 text-emerald-400 fill-emerald-400/20 group-hover:scale-110 transition-transform" />
-              <span className="hidden xs:inline">{t("testRun")}</span>
-            </>
-          )}
-        </Button>
+        <Tooltip content={!canEdit ? t("readOnlyHint") : t("save")} shortcut={canEdit ? <Kbd>{modKey}S</Kbd> : undefined}>
+          <span className="hidden sm:inline-flex">
+            <Button variant="secondary" size="sm" onClick={onSave} disabled={isSaving || isExecuting || !canEdit} loading={isSaving}>
+              {!isSaving && (saveState === "saved" ? <Check aria-hidden /> : <Save aria-hidden />)}
+              <span className="hidden lg:inline">{isSaving ? t("saving") : t("save")}</span>
+            </Button>
+          </span>
+        </Tooltip>
 
-        {/* Primary Action 2: Dispatch BullMQ Queue (visible on sm+) */}
-        {onDispatchQueue && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onDispatchQueue}
-            disabled={isExecuting || isSaving || hasCycleError}
-            className="hidden sm:inline-flex border-amber-500/30 bg-amber-950/20 hover:bg-amber-900/30 text-amber-300 gap-1.5 shadow-sm px-2.5 sm:px-3 hover:scale-[1.02] active:scale-[0.98] transition-all"
-            title="Dispatch DAG execution to BullMQ distributed queue and stream live progress via SSE"
-          >
-            {isExecuting ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-400" />
-                <span className="hidden md:inline">Streaming...</span>
-              </>
-            ) : (
-              <>
-                <Zap className="h-3.5 w-3.5 text-amber-400 fill-amber-400/20 animate-bounce-subtle" />
-                <span className="hidden md:inline">Dispatch Queue</span>
-              </>
-            )}
-          </Button>
-        )}
-
-        {/* Primary Action 3: Save Button */}
-        <Button
-          variant="default"
-          size="sm"
-          onClick={onSave}
-          disabled={isSaving || isExecuting || !canEdit}
-          title={!canEdit ? "Read-only access (Viewer Role)" : "Save workflow changes"}
-          className="bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-semibold px-2.5 sm:px-3"
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span className="hidden xs:inline">{t("saving")}</span>
-            </>
-          ) : (
-            <>
-              <Save className="h-3.5 w-3.5" />
-              <span className="hidden xs:inline">{t("save")}</span>
-            </>
-          )}
-        </Button>
-
-        {/* Primary Action 4: Publish (visible on md+) */}
         {onPublish && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onPublish}
-            disabled={isPublishing || isSaving || hasCycleError || !canPublish}
-            title={!canPublish ? "Publishing requires Admin/Owner Role" : "Publish workflow"}
-            className="hidden md:inline-flex border-violet-500/30 bg-violet-950/20 hover:bg-violet-900/30 text-violet-300 gap-1"
-          >
-            {isPublishing ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span className="hidden lg:inline">{t("publishing")}</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="h-3.5 w-3.5 text-violet-400" />
-                <span className="hidden lg:inline">{t("publish")}</span>
-              </>
-            )}
-          </Button>
+          <Tooltip content={!canPublish ? t("publishRequires") : t("publish")}>
+            <span className="hidden sm:inline-flex">
+              <Button
+                size="sm"
+                onClick={onPublish}
+                disabled={isPublishing || isSaving || hasCycleError || !canPublish}
+                loading={isPublishing}
+              >
+                {!isPublishing && <Rocket aria-hidden />}
+                <span className="hidden md:inline">{isPublishing ? t("publishing") : t("publish")}</span>
+              </Button>
+            </span>
+          </Tooltip>
         )}
 
-        <div className="h-4 w-px bg-zinc-800 mx-0.5 sm:mx-1 hidden xs:block" />
-
-        <LanguageSwitcher />
-
-        {session && <UserNav session={session} />}
+        <span className="mx-0.5 hidden h-5 w-px bg-line md:block" aria-hidden />
+        <div className="hidden items-center gap-0.5 md:flex">
+          <ThemeToggle />
+          <LanguageSwitcher compact />
+        </div>
+        {session && (
+          <div className="ml-1">
+            <UserNav session={session} variant="compact" />
+          </div>
+        )}
       </div>
     </header>
   );

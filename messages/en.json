@@ -25,7 +25,9 @@
     "copied": "Copied to clipboard",
     "language": "Language",
     "english": "English",
-    "indonesian": "Bahasa Indonesia"
+    "indonesian": "Bahasa Indonesia",
+    "theme": "Theme",
+    "or": "or"
   },
   "workflow": {
     "title": "Workflow Editor",
@@ -85,7 +87,8 @@
       "defaultLabel": "Manual Ingestion Trigger",
       "fields": {
         "payload": "Sample Input JSON Payload"
-      }
+      },
+      "short": "Trigger"
     },
     "webhook": {
       "name": "Webhook Ingestion",
@@ -97,7 +100,8 @@
         "pathPlaceholder": "e.g., stripe-events-hook",
         "authHeader": "Optional Secret Header Key",
         "method": "HTTP Method"
-      }
+      },
+      "short": "Webhook"
     },
     "action": {
       "name": "HTTP Request Action",
@@ -111,7 +115,8 @@
         "headers": "Request Headers (JSON)",
         "body": "Request Body Payload (JSON or interpolated strings)",
         "timeout": "Timeout (milliseconds)"
-      }
+      },
+      "short": "HTTP request"
     },
     "filter": {
       "name": "Condition Filter",
@@ -131,7 +136,8 @@
           "lessThan": "Less Than (<)",
           "exists": "Is Present & Non-Null"
         }
-      }
+      },
+      "short": "Filter"
     }
   },
   "validation": {
@@ -155,7 +161,15 @@
     "status": "State",
     "inputPayload": "Trigger Payload",
     "stepLogs": "Step Breakdown",
-    "noExecutions": "No execution records found yet. Trigger a test run to inspect live results."
+    "noExecutions": "No execution records found yet. Trigger a test run to inspect live results.",
+    "subtitle": "Runs of this workflow, newest first",
+    "refresh": "Refresh history",
+    "replay": "Replay on canvas",
+    "selectPrompt": "Select a run to inspect its steps.",
+    "noSteps": "No step telemetry recorded for this run.",
+    "output": "Output",
+    "error": "Error",
+    "back": "All runs"
   },
   "webhookConsole": {
     "title": "Webhook Ingestion Console",
@@ -169,7 +183,14 @@
     "streamOnCanvas": "Watch Live Stream on Canvas",
     "responseStatus": "HTTP Response Status",
     "copyUrl": "Copy Webhook URL",
-    "invalidJson": "Invalid JSON payload"
+    "invalidJson": "Invalid JSON payload",
+    "copied": "Endpoint URL copied",
+    "secretHeader": "Secret header",
+    "accepted": "HTTP 202 accepted in {ms}ms",
+    "returned": "Webhook returned HTTP {status}",
+    "networkError": "Network error while dispatching the webhook.",
+    "async": "Async · HTTP 202",
+    "executionId": "Execution ID: {id}"
   },
   "settingsPage": {
     "title": "Workspace & Plan Settings",
@@ -182,7 +203,102 @@
     "workflowsQuota": "Workflows Quota",
     "executionsQuota": "Monthly Executions",
     "concurrencyQuota": "Concurrent Workers",
-    "retentionQuota": "Data Retention Window"
+    "retentionQuota": "Data Retention Window",
+    "metaTitle": "Settings",
+    "tabs": {
+      "overview": "Plan & usage",
+      "team": "Team",
+      "security": "Security",
+      "permissions": "Permissions"
+    },
+    "plan": "{tier} plan",
+    "unlimited": "Unlimited",
+    "usageOf": "{used} of {limit}",
+    "workflowsHint": "Active workflows in this workspace",
+    "executionsHint": "Runs logged this billing cycle",
+    "maxDuration": "Max run duration",
+    "maxDurationHint": "Per execution before timeout",
+    "retentionHint": "Run history is pruned after this window",
+    "days": "{count, plural, one {# day} other {# days}}",
+    "features": {
+      "title": "Plan features",
+      "customDomain": "Custom webhook domain",
+      "hardwareKms": "Hardware KMS",
+      "included": "Included",
+      "notIncluded": "Not included"
+    },
+    "persona": "Active persona",
+    "personaHint": "Demo: switch roles to preview RBAC across the app.",
+    "teamHint": "People with access to this workspace.",
+    "assumeRole": "Assume role",
+    "you": "You",
+    "securityHint": "Guardrails enforced on every workflow run.",
+    "security": {
+      "ssrf": {
+        "title": "Anti-SSRF egress guard",
+        "body": "HTTP and webhook steps are sandboxed. Requests to localhost, private CIDRs and cloud metadata endpoints are blocked.",
+        "status": "Active"
+      },
+      "vault": {
+        "title": "AES-256-GCM vault encryption",
+        "body": "Secrets are encrypted with authenticated 256-bit GCM, 96-bit random IVs and 128-bit auth tags.",
+        "status": "Enforced"
+      },
+      "signatures": {
+        "title": "Webhook signature verification",
+        "body": "Stripe and GitHub webhooks are verified with constant-time comparison and a 300-second replay window.",
+        "status": "Enabled"
+      },
+      "rateLimit": {
+        "title": "Tenant rate limiting",
+        "body": "Ingestion routes use a token bucket per IP and workspace. Bursts over capacity get HTTP 429 with Retry-After.",
+        "status": "60 req/min"
+      }
+    },
+    "permissionsTitle": "Role permissions",
+    "permissionsHint": "What each role can do in this workspace.",
+    "permission": "Permission",
+    "yourAccess": "Your access",
+    "allowed": "Allowed",
+    "denied": "Not allowed",
+    "permissions": {
+      "workflowCreate": {
+        "label": "Create workflows",
+        "description": "Design new pipelines and triggers"
+      },
+      "workflowEdit": {
+        "label": "Edit canvas",
+        "description": "Change steps, connections and configuration"
+      },
+      "workflowPublish": {
+        "label": "Publish workflows",
+        "description": "Deploy workflows to live queues"
+      },
+      "workflowDelete": {
+        "label": "Delete workflows",
+        "description": "Permanently remove workflows"
+      },
+      "workflowExecute": {
+        "label": "Run workflows",
+        "description": "Dispatch test runs and webhook triggers"
+      },
+      "executionRetry": {
+        "label": "Retry failed runs",
+        "description": "Re-queue failed executions"
+      },
+      "credentialCreate": {
+        "label": "Write to vault",
+        "description": "Store encrypted credentials"
+      },
+      "credentialView": {
+        "label": "Read vault",
+        "description": "See credential names and masked values"
+      },
+      "workspaceManage": {
+        "label": "Manage workspace",
+        "description": "Quotas, plan and member access"
+      }
+    }
   },
   "auth": {
     "signInTab": "Sign In",
@@ -214,6 +330,491 @@
     "authenticatingStep3": "Connecting to workspace dashboard...",
     "registeringStep1": "Creating workspace & hashing credentials...",
     "registeringStep2": "Initializing AES-256 vault & DAG worker...",
-    "redirecting": "Redirecting..."
+    "redirecting": "Redirecting...",
+    "metaTitle": "Sign in",
+    "brandTitle": "Automation you can see.",
+    "brandSubtitle": "Design DAG workflows visually, run them on distributed workers and watch every step land in real time.",
+    "points": {
+      "visual": "Visual DAG editor with cycle-safe validation",
+      "live": "Live execution telemetry streamed to the canvas",
+      "vault": "AES-256-GCM encrypted credential vault"
+    },
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "capsLock": "Caps Lock is on",
+    "nameRequired": "Enter your full name.",
+    "emailInvalid": "Enter a valid work email.",
+    "passwordTooShort": "Password must be at least 8 characters.",
+    "welcomeBack": "Welcome back, {name}!",
+    "accountCreated": "Workspace {workspace} is ready.",
+    "authFailed": "Authentication failed.",
+    "networkError": "Something went wrong. Check your connection and try again.",
+    "demoFilled": "Filled demo credentials for {email}",
+    "demo": {
+      "owner": "Owner",
+      "editor": "Editor",
+      "viewer": "Viewer"
+    },
+    "freeTier": "Free tier included",
+    "freeTierHint": "DAG engine, encrypted vault and queue workers."
+  },
+  "ui": {
+    "copy": "Copy",
+    "copied": "Copied",
+    "typeToConfirm": "Type <value></value> to confirm",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page} of {total}",
+    "rangeOf": "{from}–{to} of {total}",
+    "noResults": "No results",
+    "clearFilters": "Clear filters",
+    "close": "Close",
+    "more": "More",
+    "loading": "Loading…",
+    "skipToContent": "Skip to content"
+  },
+  "status": {
+    "PENDING": "Queued",
+    "RUNNING": "Running",
+    "SUCCESS": "Succeeded",
+    "FAILED": "Failed",
+    "DRAFT": "Draft",
+    "PUBLISHED": "Published",
+    "DISABLED": "Disabled"
+  },
+  "nav": {
+    "main": "Main navigation",
+    "workflows": "Workflows",
+    "executions": "Runs",
+    "vault": "Vault",
+    "settings": "Settings",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "newWorkflow": "New workflow",
+    "home": "NexusFlow home"
+  },
+  "shell": {
+    "search": "Search or jump to…",
+    "searchShort": "Search",
+    "commandTitle": "Command menu",
+    "commandDescription": "Search pages, workflows and actions",
+    "commandPlaceholder": "Type a command or search…",
+    "commandEmpty": "Nothing found.",
+    "groups": {
+      "navigation": "Navigation",
+      "workflows": "Workflows",
+      "actions": "Actions",
+      "preferences": "Preferences",
+      "account": "Account"
+    },
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "toggleTheme": "Change theme",
+    "switchLanguage": "Switch language to {language}",
+    "switchRole": "Switch role to {role}",
+    "status": {
+      "operational": "All systems operational",
+      "degraded": "Running on fallback storage",
+      "offline": "Status unavailable",
+      "checking": "Checking status…"
+    }
+  },
+  "account": {
+    "signIn": "Sign in",
+    "register": "Create account",
+    "signOut": "Sign out",
+    "menu": "Account menu",
+    "roleTester": "Demo role tester",
+    "roles": {
+      "OWNER": "Owner",
+      "ADMIN": "Admin",
+      "MEMBER": "Member",
+      "VIEWER": "Viewer"
+    },
+    "workspaceSettings": "Workspace settings",
+    "switchAccount": "Switch account",
+    "roleSwitched": "Switched to {role} ({name})",
+    "roleSwitchFailed": "Couldn't switch role.",
+    "signedOut": "Signed out."
+  },
+  "dashboard": {
+    "metaTitle": "Workflows",
+    "welcome": "Welcome back, {name}",
+    "welcomeGuest": "Welcome to NexusFlow",
+    "subtitle": "Design, run and monitor your automation pipelines.",
+    "newWorkflow": "New workflow",
+    "viewRuns": "View runs",
+    "kpi": {
+      "workflows": "Workflows",
+      "workflowsHint": "{published} published",
+      "runs": "Runs",
+      "runsHint": "Last 7 days",
+      "successRate": "Success rate",
+      "successRateHint": "Across {count} runs",
+      "avgDuration": "Avg duration",
+      "avgDurationHint": "End-to-end per run",
+      "noData": "No runs yet",
+      "trendLabel": "Runs per day, last 7 days",
+      "dayValue": "{day}: {count} runs"
+    },
+    "workflowsTitle": "Workflows",
+    "searchPlaceholder": "Search workflows…",
+    "searchLabel": "Search workflows",
+    "filterLabel": "Filter by status",
+    "filter": {
+      "all": "All",
+      "published": "Published",
+      "draft": "Draft",
+      "disabled": "Disabled"
+    },
+    "sortLabel": "Sort workflows",
+    "sort": {
+      "updated": "Last updated",
+      "name": "Name",
+      "nodes": "Most steps"
+    },
+    "viewLabel": "Layout",
+    "view": {
+      "grid": "Grid",
+      "list": "List"
+    },
+    "steps": "{count, plural, one {# step} other {# steps}}",
+    "updated": "Updated <time></time>",
+    "lastRun": "Last run",
+    "neverRun": "Never run",
+    "open": "Open",
+    "openWorkflow": "Open {name}",
+    "noDescription": "No description",
+    "noMatches": "No workflows match your filters",
+    "noMatchesHint": "Try a different search or clear the filters.",
+    "emptyTitle": "Create your first workflow",
+    "emptyHint": "Start from a template or a blank canvas.",
+    "activityTitle": "Recent activity",
+    "activityEmpty": "Runs appear here once a workflow executes.",
+    "viewAll": "View all",
+    "graphLabel": "Workflow graph with {count} steps",
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "steps": "Steps",
+      "lastRun": "Last run",
+      "updated": "Updated"
+    },
+    "hero": {
+      "greeting": "Welcome back,",
+      "greetingGuest": "Welcome to",
+      "lead": "Design, run and monitor",
+      "rotating": [
+        "automation pipelines",
+        "webhook integrations",
+        "data enrichment flows",
+        "approval gates"
+      ],
+      "liveRuns": "{count, plural, one {# run} other {# runs}} this week",
+      "ready": "Your workspace is ready",
+      "previewTitle": "Live preview",
+      "previewLabel": "Animated preview of {name} running step by step",
+      "running": "Running step {current} of {total}",
+      "done": "All {total} steps succeeded",
+      "queued": "Queued"
+    }
+  },
+  "templates": {
+    "title": "Create a workflow",
+    "description": "Start from a template or a blank canvas.",
+    "blank": "Blank canvas",
+    "blankHint": "Start with an empty graph and add a trigger.",
+    "steps": "{count, plural, one {# step} other {# steps}}",
+    "opening": "Opening editor…"
+  },
+  "runs": {
+    "metaTitle": "Runs",
+    "title": "Runs",
+    "subtitle": "Execution history and step-level telemetry across all workflows.",
+    "refresh": "Refresh",
+    "liveCount": "{count} running",
+    "kpi": {
+      "total": "Total runs",
+      "totalHint": "Most recent 50",
+      "successRate": "Success rate",
+      "avgDuration": "Avg duration",
+      "failed": "Failed",
+      "failedHint": "Need attention",
+      "running": "{count} running now"
+    },
+    "searchPlaceholder": "Search by run ID or workflow…",
+    "searchLabel": "Search runs",
+    "statusFilter": "Filter by status",
+    "all": "All",
+    "allWorkflows": "All workflows",
+    "workflowFilter": "Filter by workflow",
+    "columns": {
+      "status": "Status",
+      "run": "Run",
+      "workflow": "Workflow",
+      "started": "Started",
+      "duration": "Duration",
+      "steps": "Steps"
+    },
+    "actions": "Run actions",
+    "retry": "Retry",
+    "retrying": "Retrying…",
+    "retried": "Retry queued as {id}",
+    "retryFailed": "Couldn't retry this run.",
+    "viewDetails": "View details",
+    "openInEditor": "Open in editor",
+    "replayInEditor": "Replay in editor",
+    "copyId": "Copy run ID",
+    "emptyTitle": "No runs yet",
+    "emptyHint": "Trigger a test run or send a webhook to see executions here.",
+    "noMatches": "No runs match your filters",
+    "stepsSummary": "{ok}/{total} ok",
+    "durationOf": "{value} of slowest run",
+    "detail": {
+      "title": "Run details",
+      "started": "Started",
+      "duration": "Duration",
+      "workflow": "Workflow",
+      "steps": "Steps",
+      "trigger": "Trigger payload",
+      "output": "Output",
+      "error": "Error",
+      "noSteps": "No step telemetry recorded for this run.",
+      "showOutput": "Show output",
+      "hideOutput": "Hide output",
+      "streaming": "Streaming live updates…",
+      "step": "Step {n}"
+    }
+  },
+  "vault": {
+    "metaTitle": "Vault",
+    "title": "Vault",
+    "subtitle": "Encrypted credentials your workflows reference at runtime.",
+    "newCredential": "New credential",
+    "howItWorksTitle": "AES-256-GCM encryption",
+    "howItWorks": "Each secret is encrypted with a unique 96-bit IV and only decrypted inside the worker at execution time. Reference it in any step with <code>{ref}</code>.",
+    "searchPlaceholder": "Search credentials…",
+    "searchLabel": "Search credentials",
+    "allTypes": "All types",
+    "typeFilter": "Filter by type",
+    "types": {
+      "api_key": "API key",
+      "bearer_token": "Bearer token",
+      "oauth_secret": "OAuth secret",
+      "webhook_secret": "Webhook secret"
+    },
+    "created": "Created <time></time>",
+    "copyReference": "Copy reference",
+    "referenceCopied": "Copied {ref}",
+    "delete": "Delete credential",
+    "deleteNamed": "Delete {name}",
+    "deleteTitle": "Delete {name}?",
+    "deleteDescription": "Workflows that reference this credential will fail until it's replaced. This can't be undone.",
+    "deleted": "{name} deleted.",
+    "deleteFailed": "Couldn't delete credential.",
+    "emptyTitle": "No credentials yet",
+    "emptyHint": "Store an API key or token to reference it securely from workflow steps.",
+    "noMatches": "No credentials match your search",
+    "count": "{count, plural, one {# credential} other {# credentials}}",
+    "permissionRequired": "Your role can't manage credentials.",
+    "form": {
+      "title": "New credential",
+      "description": "The value is encrypted before it's stored.",
+      "name": "Name",
+      "nameHint": "Uppercase letters, numbers and underscores. Referenced as {ref}.",
+      "nameError": "Use uppercase letters, numbers and underscores, starting with a letter.",
+      "type": "Type",
+      "value": "Secret value",
+      "valuePlaceholder": "Paste the secret to encrypt",
+      "valueError": "Enter the secret value.",
+      "show": "Show secret",
+      "hide": "Hide secret",
+      "submit": "Encrypt & save",
+      "created": "{name} encrypted and stored.",
+      "failed": "Couldn't save credential."
+    }
+  },
+  "errors": {
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The page you're looking for doesn't exist or has moved.",
+    "goHome": "Back to workflows",
+    "errorTitle": "Something went wrong",
+    "errorBody": "An unexpected error occurred while loading this page.",
+    "retry": "Try again"
+  },
+  "editor": {
+    "untitled": "Untitled workflow",
+    "back": "Back to workflows",
+    "rename": "Rename workflow",
+    "nameLabel": "Workflow name",
+    "saved": "Saved",
+    "unsaved": "Unsaved changes",
+    "saving": "Saving…",
+    "save": "Save",
+    "publish": "Publish",
+    "publishing": "Publishing…",
+    "run": "Test run",
+    "running": "Running…",
+    "runOptions": "More run options",
+    "testRunHint": "Simulate the DAG on the canvas",
+    "dispatch": "Dispatch to queue",
+    "dispatchHint": "Run on BullMQ workers and stream live progress",
+    "webhookConsole": "Webhook console",
+    "history": "Run history",
+    "more": "More actions",
+    "autoLayout": "Auto-layout",
+    "export": "Export JSON",
+    "import": "Import JSON",
+    "templates": "Templates",
+    "shortcuts": "Keyboard shortcuts",
+    "clearRun": "Clear run state",
+    "readOnly": "View only",
+    "readOnlyHint": "Your role can view this workflow but not save changes.",
+    "publishRequires": "Publishing requires an Admin or Owner role.",
+    "cycle": "Cycle detected",
+    "cycleHint": "Remove the highlighted connection to restore a valid DAG.",
+    "toolbar": {
+      "label": "Canvas tools",
+      "addStep": "Add step",
+      "undo": "Undo",
+      "redo": "Redo",
+      "fit": "Fit to screen",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "layout": "Auto-layout",
+      "runPanel": "Run timeline"
+    },
+    "picker": {
+      "title": "Add a step",
+      "placeholder": "Search steps…",
+      "empty": "No matching steps",
+      "groups": {
+        "triggers": "Triggers",
+        "actions": "Actions",
+        "logic": "Logic"
+      }
+    },
+    "palette": {
+      "title": "Steps",
+      "search": "Search steps…",
+      "collapse": "Collapse panel",
+      "expand": "Expand panel",
+      "hint": "Drag onto the canvas, or press Enter to add."
+    },
+    "empty": {
+      "title": "Start with a trigger",
+      "body": "Every workflow begins with a trigger. Add one, then connect actions and filters below it.",
+      "browse": "Browse templates"
+    },
+    "node": {
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "test": "Test step",
+      "inCycle": "In cycle",
+      "duration": "Duration",
+      "error": "Error",
+      "insert": "Insert step here",
+      "deleteEdge": "Remove connection",
+      "added": "Added {label}",
+      "deleted": "Step deleted",
+      "undo": "Undo",
+      "selected": "{label} selected"
+    },
+    "inspector": {
+      "title": "Step settings",
+      "close": "Close panel",
+      "resize": "Resize panel",
+      "tabs": {
+        "configure": "Configure",
+        "test": "Test",
+        "variables": "Variables"
+      },
+      "label": "Name",
+      "description": "Description",
+      "parameters": "Parameters",
+      "invalidJson": "Invalid JSON — kept as text until fixed.",
+      "sandboxTitle": "Step sandbox",
+      "sandboxHint": "Run this step in isolation with sample data before running the whole workflow.",
+      "runTest": "Run step test",
+      "testing": "Testing…",
+      "pingWebhook": "Ping webhook",
+      "response": "Response",
+      "status": "Status",
+      "lastRun": "Last run",
+      "noRunYet": "This step hasn't run yet.",
+      "variablesHint": "Click a reference to copy it, or type {open} in any JSON field for suggestions.",
+      "triggerVars": "Trigger payload",
+      "upstreamVars": "Upstream steps",
+      "noUpstream": "No upstream steps yet — connect one above this step.",
+      "vaultVars": "Vault secrets",
+      "noVault": "No credentials in the vault yet.",
+      "from": "From {label}",
+      "copied": "Copied {ref}",
+      "deleteStep": "Delete step",
+      "stepTestDone": "Step test completed in {ms}ms",
+      "stepTestFailed": "Step test failed",
+      "webhookAccepted": "Webhook accepted (HTTP 202)",
+      "webhookReturned": "Webhook returned HTTP {status}",
+      "webhookUnreachable": "Couldn't reach the webhook route."
+    },
+    "confirm": {
+      "templateTitle": "Replace the canvas with this template?",
+      "templateBody": "Your current steps will be replaced. You can undo this.",
+      "templateConfirm": "Replace",
+      "importTitle": "Replace the canvas with the imported file?",
+      "importBody": "Your current steps will be replaced. You can undo this.",
+      "importConfirm": "Import",
+      "leaveTitle": "Discard unsaved changes?",
+      "leaveBody": "You have changes that haven't been saved yet.",
+      "leaveConfirm": "Discard & leave"
+    },
+    "tip": {
+      "mobile": "Tip: pinch to zoom and tap a step to edit it. Larger screens give you the full editor.",
+      "dismiss": "Dismiss tip"
+    },
+    "shortcutsList": {
+      "save": "Save",
+      "run": "Test run",
+      "undo": "Undo",
+      "redo": "Redo",
+      "add": "Add step",
+      "duplicate": "Duplicate step",
+      "delete": "Delete selection",
+      "deselect": "Close panel / deselect",
+      "help": "Show shortcuts",
+      "fit": "Fit to screen"
+    },
+    "toasts": {
+      "layout": "Layout tidied",
+      "exported": "Workflow exported as JSON",
+      "imported": "Workflow imported",
+      "importInvalid": "Invalid file: missing nodes or edges.",
+      "importCycle": "Import rejected: the file contains a cycle.",
+      "importParse": "Couldn't read that JSON file.",
+      "templateLoaded": "Loaded template: {name}",
+      "replay": "Replaying run {id}",
+      "runComplete": "All steps finished in topological order.",
+      "enqueueing": "Enqueuing job…",
+      "queued": "Job queued ({mode}). Streaming live telemetry…",
+      "queueFailed": "Couldn't enqueue the workflow.",
+      "streamDone": "Run finished successfully",
+      "streamFailed": "Run finished with errors",
+      "streamConnecting": "Connecting to live stream for {id}…",
+      "executionId": "Execution ID: {id}",
+      "publishFailed": "Couldn't publish workflow",
+      "dispatchFailed": "Dispatch failed"
+    },
+    "runPanel": {
+      "title": "Run timeline",
+      "idle": "No run yet. Press Test run to simulate the workflow.",
+      "progress": "{done} of {total} steps",
+      "tier": "Tier {n}",
+      "logs": "Logs",
+      "noLogs": "Run events will appear here.",
+      "clear": "Clear",
+      "collapse": "Collapse timeline",
+      "expand": "Expand timeline"
+    }
   }
 }

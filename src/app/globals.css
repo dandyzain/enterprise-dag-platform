@@ -1,400 +1,456 @@
 @import "tailwindcss";
-@import "@xyflow/react/dist/style.css";
+@import "tw-animate-css";
 
-@layer base {
-  :root {
-    --background: #09090b;
-    --foreground: #f4f4f5;
-    --card: #121215;
-    --card-foreground: #f4f4f5;
-    --popover: #121215;
-    --popover-foreground: #f4f4f5;
-    --primary: #10b981;
-    --primary-foreground: #09090b;
-    --secondary: #18181b;
-    --secondary-foreground: #fafafa;
-    --muted: #27272a;
-    --muted-foreground: #a1a1aa;
-    --accent: #27272a;
-    --accent-foreground: #fafafa;
-    --destructive: #f43f5e;
-    --destructive-foreground: #fafafa;
-    --border: #27272a;
-    --input: #27272a;
-    --ring: #10b981;
-    --radius: 0.5rem;
-  }
+/* Theme switching is class-based (next-themes writes .dark / .light on <html>). */
+/* Scoped to <html> so third-party "dark"/"light" classes (e.g. React Flow) never leak tokens. */
+@custom-variant dark (&:where(:root.dark, :root.dark *));
+
+/* =========================================================================
+   DESIGN TOKENS — "Mission Control"
+   Neutral layered surfaces + one signature "signal" gradient reserved for
+   live/active states. Status and node-type hues were validated for contrast
+   and colour-vision separation in both themes.
+   ========================================================================= */
+
+:root,
+:root.dark {
+  color-scheme: dark;
+
+  /* Surfaces (back → front) */
+  --app: oklch(0.141 0.005 285.8);
+  --surface: oklch(0.172 0.005 285.8);
+  --surface-2: oklch(0.207 0.006 285.9);
+  --surface-3: oklch(0.245 0.006 286);
+  --overlay: oklch(0.192 0.006 285.9);
+
+  /* Lines */
+  --line: oklch(0.274 0.006 286);
+  --line-strong: oklch(0.37 0.012 285.8);
+
+  /* Text — fg-subtle keeps >= 4.5:1 on every surface */
+  --fg: oklch(0.967 0.001 286.4);
+  --fg-muted: oklch(0.75 0.012 286);
+  --fg-subtle: oklch(0.63 0.014 286);
+
+  /* Accent (emerald) */
+  --accent: #34d399;
+  --accent-solid: #10b981;
+  --accent-solid-hover: #34d399;
+  --accent-solid-fg: #022c22;
+  --ring: #34d399;
+
+  /* Status — always paired with an icon + label */
+  --success: #10b981;
+  --running: #22d3ee;
+  --failed: #fb7185;
+  --warning: #fbbf24;
+
+  /* Node identity (categorical) */
+  --node-trigger: #8b5cf6;
+  --node-webhook: #ec4899;
+  --node-action: #2563eb;
+  --node-filter: #d97706;
+
+  /* Signal gradient (logo) */
+  --signal-1: #10b981;
+  --signal-2: #06b6d4;
+  --signal-3: #3b82f6;
+
+  /* Elevation */
+  --elev-1: 0 1px 2px 0 rgb(0 0 0 / 0.45);
+  --elev-2: 0 10px 28px -10px rgb(0 0 0 / 0.65), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+  --elev-3: 0 28px 56px -16px rgb(0 0 0 / 0.75), 0 10px 20px -10px rgb(0 0 0 / 0.5);
+
+  --grid-dot: oklch(0.32 0.006 286);
+
+  /* Code tokens (>= 4.5:1 on surface-2) */
+  --code-string: #6ee7b7;
+  --code-number: #67e8f9;
+  --code-literal: #c4b5fd;
 }
 
-body {
-  background-color: #09090b;
-  color: #f4f4f5;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
+:root.light {
+  color-scheme: light;
+
+  --app: oklch(0.985 0.002 286);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.967 0.003 286);
+  --surface-3: oklch(0.935 0.004 286);
+  --overlay: oklch(1 0 0);
+
+  --line: oklch(0.92 0.004 286);
+  --line-strong: oklch(0.871 0.006 286);
+
+  --fg: oklch(0.21 0.006 285.9);
+  --fg-muted: oklch(0.442 0.017 285.8);
+  --fg-subtle: oklch(0.5 0.015 286);
+
+  --accent: #047857;
+  --accent-solid: #047857;
+  --accent-solid-hover: #065f46;
+  --accent-solid-fg: #ffffff;
+  --ring: #059669;
+
+  --success: #059669;
+  --running: #0284c7;
+  --failed: #e11d48;
+  --warning: #b45309;
+
+  --node-trigger: #7c3aed;
+  --node-webhook: #db2777;
+  --node-action: #2563eb;
+  --node-filter: #d97706;
+
+  --elev-1: 0 1px 2px 0 rgb(24 24 27 / 0.06), 0 1px 3px 0 rgb(24 24 27 / 0.04);
+  --elev-2: 0 10px 28px -10px rgb(24 24 27 / 0.14), 0 2px 6px -2px rgb(24 24 27 / 0.06);
+  --elev-3: 0 28px 56px -16px rgb(24 24 27 / 0.2), 0 10px 20px -10px rgb(24 24 27 / 0.08);
+
+  --grid-dot: oklch(0.84 0.005 286);
+
+  --code-string: #047857;
+  --code-number: #0369a1;
+  --code-literal: #6d28d9;
 }
 
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+@theme inline {
+  --color-app: var(--app);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-overlay: var(--overlay);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-accent: var(--accent);
+  --color-accent-solid: var(--accent-solid);
+  --color-accent-solid-hover: var(--accent-solid-hover);
+  --color-accent-solid-fg: var(--accent-solid-fg);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-running: var(--running);
+  --color-failed: var(--failed);
+  --color-warning: var(--warning);
+  --color-node-trigger: var(--node-trigger);
+  --color-node-webhook: var(--node-webhook);
+  --color-node-action: var(--node-action);
+  --color-node-filter: var(--node-filter);
+  --color-signal-1: var(--signal-1);
+  --color-signal-2: var(--signal-2);
+  --color-signal-3: var(--signal-3);
+  --color-code-string: var(--code-string);
+  --color-code-number: var(--code-number);
+  --color-code-literal: var(--code-literal);
+
+  --shadow-elev-1: var(--elev-1);
+  --shadow-elev-2: var(--elev-2);
+  --shadow-elev-3: var(--elev-3);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+@theme {
+  --breakpoint-xs: 30rem;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.25rem;
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  /* Motion tokens (mirrored in src/components/motion/presets.ts) */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-ring-spin: ring-spin 1.4s linear infinite;
+  --animate-live-ping: live-ping 1.8s var(--ease-standard) infinite;
+  --animate-shake: shake 0.42s var(--ease-standard) 1;
+  --animate-dash-flow: dash-flow 0.9s linear infinite;
+  --animate-check-draw: check-draw 0.42s var(--ease-emphasized) both;
+  --animate-aurora-a: aurora-a 18s ease-in-out infinite alternate;
+  --animate-aurora-b: aurora-b 22s ease-in-out infinite alternate;
+  --animate-aurora-c: aurora-c 26s ease-in-out infinite alternate;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(161, 161, 170, 0.2);
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(161, 161, 170, 0.35);
-}
-
-/* React Flow Canvas Enhancements */
-.react-flow__background {
-  background-color: #09090b !important;
-}
-
-.react-flow__pane {
-  cursor: grab;
-}
-
-.react-flow__pane:active {
-  cursor: grabbing;
-}
-
-.react-flow__edge-path {
-  stroke: #3f3f46;
-  stroke-width: 2px;
-  transition: stroke 0.2s ease, stroke-width 0.2s ease;
-}
-
-.react-flow__edge.selected .react-flow__edge-path {
-  stroke: #10b981 !important;
-  stroke-width: 2.5px !important;
-}
-
-/* Animated Flowing Line for Executing Replay */
-@keyframes flowDash {
-  to {
-    stroke-dashoffset: -24;
-  }
-}
-
-.animated-dag-edge {
-  stroke-dasharray: 6 6;
-  animation: flowDash 0.8s linear infinite;
-}
-
-.animated-dag-edge-success {
-  stroke: #10b981 !important;
-}
-
-.animated-dag-edge-running {
-  stroke: #f59e0b !important;
-}
-
-.animated-dag-edge-failed {
-  stroke: #f43f5e !important;
-}
-
-/* Glow effects for active execution nodes */
-@keyframes ringPulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5);
+/* Ambient hero aurora — transform-only, paused off-screen and under reduced motion. */
+@keyframes aurora-a {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+    transform: translate3d(70px, 40px, 0) scale(1.15);
+  }
+  100% {
+    transform: translate3d(-30px, 70px, 0) scale(0.95);
   }
 }
 
-.node-running-glow {
-  animation: ringPulse 1.8s infinite ease-in-out;
+@keyframes aurora-b {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1.05);
+  }
+  50% {
+    transform: translate3d(-80px, 50px, 0) scale(0.9);
+  }
+  100% {
+    transform: translate3d(40px, -30px, 0) scale(1.12);
+  }
 }
 
-/* Minimap Modern Customization */
-.react-flow__minimap {
-  background-color: #121215 !important;
-  border: 1px solid #27272a !important;
-  border-radius: 0.5rem !important;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4) !important;
+@keyframes aurora-c {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.95);
+  }
+  50% {
+    transform: translate3d(90px, -40px, 0) scale(1.1);
+  }
+  100% {
+    transform: translate3d(-60px, -10px, 0) scale(1);
+  }
 }
 
-.react-flow__controls {
-  background-color: #121215 !important;
-  border: 1px solid #27272a !important;
-  border-radius: 0.5rem !important;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4) !important;
-  overflow: hidden;
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
 }
 
-.react-flow__controls-button {
-  background-color: #121215 !important;
-  border-bottom: 1px solid #27272a !important;
-  fill: #a1a1aa !important;
+@keyframes ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.react-flow__controls-button:hover {
-  background-color: #1e1e24 !important;
-  fill: #f4f4f5 !important;
+@keyframes live-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  80%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 /* =========================================================================
-   RICH MICRO-ANIMATIONS & INTERACTIVE MOTION SYSTEM
+   BASE
    ========================================================================= */
 
-/* 1. Page & Container Staggered Fade Up */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--line);
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
   }
-}
 
-.animate-fade-in-up {
-  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Stagger Delays */
-.delay-50 { animation-delay: 50ms; }
-.delay-100 { animation-delay: 100ms; }
-.delay-150 { animation-delay: 150ms; }
-.delay-200 { animation-delay: 200ms; }
-.delay-250 { animation-delay: 250ms; }
-.delay-300 { animation-delay: 300ms; }
-.delay-400 { animation-delay: 400ms; }
-.delay-500 { animation-delay: 500ms; }
-
-/* 2. Interactive Card Lift & Border Glow */
-.card-hover-effect {
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.25s ease;
-}
-
-.card-hover-effect:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6), 0 0 15px -3px rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.35);
-}
-
-.card-hover-sky {
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.25s ease;
-}
-
-.card-hover-sky:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6), 0 0 15px -3px rgba(14, 165, 233, 0.15);
-  border-color: rgba(14, 165, 233, 0.35);
-}
-
-.card-hover-violet {
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.25s ease;
-}
-
-.card-hover-violet:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6), 0 0 15px -3px rgba(139, 92, 246, 0.15);
-  border-color: rgba(139, 92, 246, 0.35);
-}
-
-/* 3. Shimmer Light Reflection */
-@keyframes shimmerWave {
-  0% {
-    transform: translateX(-100%);
+  body {
+    background-color: var(--app);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
-  100% {
-    transform: translateX(100%);
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--accent) 28%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  button,
+  [role="button"] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  /* Thin, theme-aware scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--fg-subtle) 35%, transparent) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--fg-subtle) 30%, transparent);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--fg-subtle) 55%, transparent);
   }
 }
 
-.animate-shimmer {
-  position: relative;
-  overflow: hidden;
+/* =========================================================================
+   UTILITIES
+   ========================================================================= */
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
-.animate-shimmer::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  transform: translateX(-100%);
-  background: linear-gradient(
+@utility bg-signal {
+  background-image: linear-gradient(90deg, var(--signal-1), var(--signal-2) 55%, var(--signal-3));
+}
+
+@utility text-signal {
+  background-image: linear-gradient(90deg, var(--signal-1), var(--signal-2) 55%, var(--signal-3));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility bg-dot-grid {
+  background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+@utility skeleton {
+  background-image: linear-gradient(
     90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.05) 50%,
-    transparent 100%
+    var(--surface-2) 0%,
+    var(--surface-3) 50%,
+    var(--surface-2) 100%
   );
-  animation: shimmerWave 3.5s infinite ease-in-out;
-  pointer-events: none;
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
 }
 
-/* 4. Ambient Floating Glow */
-@keyframes ambientFloat {
-  0%, 100% {
-    transform: translateY(0px) scale(1);
-    opacity: 0.6;
+/* One-shot light sweep across a button on hover (no idle loop). */
+@utility shine {
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.35) 50%, transparent 80%);
+    transform: translateX(-130%);
+    transition: transform 750ms var(--ease-emphasized);
   }
-  50% {
-    transform: translateY(-12px) scale(1.04);
-    opacity: 0.85;
-  }
-}
-
-.animate-ambient-float {
-  animation: ambientFloat 8s infinite ease-in-out;
-}
-
-/* 5. Radar Pulse Dot for Live Systems */
-@keyframes radarPing {
-  0% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-  }
-  70% {
-    transform: scale(1);
-    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
-  }
-  100% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  &:hover::after,
+  &:focus-visible::after {
+    transform: translateX(130%);
   }
 }
 
-.radar-live-dot {
-  animation: radarPing 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-@keyframes radarPingAmber {
-  0% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
-  }
-  70% {
-    transform: scale(1);
-    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
-  }
-  100% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
-  }
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
 }
 
-.radar-live-amber {
-  animation: radarPingAmber 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
-}
-
-/* 6. Subtle Bounce for Icons & Action Prompts */
-@keyframes gentleBounce {
-  0%, 100% {
-    transform: translateY(0);
+/* Cursor-following spotlight used by interactive cards (pointer devices only). */
+@utility spotlight {
+  position: relative;
+  isolation: isolate;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 220ms var(--ease-standard);
+    background: radial-gradient(
+      420px circle at var(--spot-x, 50%) var(--spot-y, 0%),
+      color-mix(in oklab, var(--accent) 9%, transparent),
+      transparent 55%
+    );
+    z-index: -1;
   }
-  50% {
-    transform: translateY(-3px);
-  }
-}
-
-.animate-bounce-subtle {
-  animation: gentleBounce 2.5s infinite ease-in-out;
-}
-
-/* 7. Gradient Border Glow */
-@keyframes gradientRotate {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
+  @media (hover: hover) and (pointer: fine) {
+    &:hover::before {
+      opacity: 1;
+    }
   }
 }
 
-.animated-gradient-border {
-  background: linear-gradient(60deg, #10b981, #06b6d4, #8b5cf6, #10b981);
-  background-size: 300% 300%;
-  animation: gradientRotate 6s ease infinite;
-}
+/* =========================================================================
+   REDUCED MOTION — loops stop, transitions collapse to near-instant.
+   ========================================================================= */
 
-/* 8. Active Node Glowing Ring with Hue Shifts */
-@keyframes activeNodePulse {
-  0%, 100% {
-    box-shadow: 0 0 0 1px #10b981, 0 0 18px rgba(16, 185, 129, 0.45);
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-  50% {
-    box-shadow: 0 0 0 2px #34d399, 0 0 28px rgba(52, 211, 153, 0.65);
-  }
-}
-
-.node-running-emerald {
-  animation: activeNodePulse 1.6s infinite ease-in-out;
-}
-
-/* 9. Smooth Progress Bar Fill */
-.progress-bar-animated {
-  transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* 10. Authentication Orbiting Rings & Loading Sweeper */
-@keyframes spinSlow {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.animate-spin-slow {
-  animation: spinSlow 3.5s linear infinite;
-}
-
-@keyframes spinReverse {
-  from {
-    transform: rotate(360deg);
-  }
-  to {
-    transform: rotate(0deg);
-  }
-}
-
-.animate-spin-reverse {
-  animation: spinReverse 2.5s linear infinite;
-}
-
-@keyframes progressInfinite {
-  0% {
-    left: -40%;
-    width: 40%;
-  }
-  50% {
-    left: 20%;
-    width: 60%;
-  }
-  100% {
-    left: 100%;
-    width: 40%;
-  }
-}
-
-.animate-progress-infinite {
-  position: absolute;
-  height: 100%;
-  background: linear-gradient(90deg, #10b981, #34d399, #06b6d4);
-  animation: progressInfinite 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  border-radius: 9999px;
 }
