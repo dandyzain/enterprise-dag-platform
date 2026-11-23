@@ -88,6 +88,20 @@ Interpolates dynamic context across steps using standard mustache syntax:
 * Modular internationalization powered by `next-intl`.
 * English (`en`) as canonical default with full Indonesian (`id`) localization for all interface elements, node configuration forms, validation warnings, and toasts.
 
+### 6. Product UI ("Mission Control" design system)
+* **Dark-first with a real light theme** (and system mode), Geist type, validated colour tokens — see [`docs/design-system.md`](docs/design-system.md).
+* **App shell**: collapsible sidebar, `⌘K` command menu, live system status from `/api/health`, mobile bottom tab bar.
+* **Dashboard** with real KPIs (runs/day sparkline, success rate, average duration), DAG thumbnails, search, filters and a template gallery for new workflows.
+* **Runs**: sortable/filterable table, step-level timeline, live SSE updates and one-click *Replay in editor*.
+* **Editor**: quick-add step picker, insert-on-edge, undo/redo, unsaved-changes guard, docked inspector with JSON editing and `{{` variable autocomplete, run timeline with live logs.
+* **Accessible & responsive**: WCAG 2.2 AA (axe: 0 violations), keyboard-first flows, reduced-motion support, layouts for phone, tablet and desktop.
+
+| Dashboard | Editor (running) |
+| :---: | :---: |
+| ![Dashboard](docs/screenshots/dashboard-dark.png) | ![Editor running a workflow](docs/screenshots/editor-running-dark.png) |
+| **Inspector (light theme)** | **Sign in** |
+| ![Editor inspector in light theme](docs/screenshots/editor-inspector-light.png) | ![Sign-in page](docs/screenshots/login-light.png) |
+
 ---
 
 ## 🚀 Quickstart & Installation
@@ -192,10 +206,22 @@ Content-Type: application/json
 
 ---
 
-## ⌨️ Canvas Keyboard Shortcuts
+## ⌨️ Keyboard Shortcuts
 
 | Shortcut | Action |
 | :--- | :--- |
+| `⌘ K` / `Ctrl + K` (or `/`) | Command menu: navigate, open workflows, switch theme / language / role |
+| `⌘ S` / `Ctrl + S` | Save workflow (with strict cycle validation) |
+| `⌘ Enter` / `Ctrl + Enter` | Run a test execution with animated replay |
+| `⌘ Z` / `⌘ ⇧ Z` | Undo / redo canvas changes |
+| `A` | Add a step (searchable picker) |
+| `⌘ D` / `Ctrl + D` | Duplicate the selected step |
+| `Backspace` / `Delete` | Delete the selection |
+| `F` | Fit the graph to the screen |
+| `Escape` | Close the inspector / deselect |
+| `?` | Show all editor shortcuts |
+
+--- | :--- |
 | `Ctrl + S` / `Cmd + S` | Save workflow blueprint with strict cycle validation |
 | `Ctrl + Enter` / `Cmd + Enter` | Run live DAG execution test with animated edges |
 | `Escape` | Close Node Inspector / deselect active node |

@@ -12,7 +12,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
 import { Kbd } from "@/components/ui/misc";
@@ -95,7 +94,6 @@ export function CommandMenu({ session, workflows }: { session: SessionUser | nul
 
         {workflows.length > 0 && (
           <>
-            <CommandSeparator />
             <CommandGroup heading={t("groups.workflows")}>
               {workflows.slice(0, 12).map((wf) => (
                 <CommandItem
@@ -112,7 +110,6 @@ export function CommandMenu({ session, workflows }: { session: SessionUser | nul
           </>
         )}
 
-        <CommandSeparator />
         <CommandGroup heading={t("groups.preferences")}>
           <CommandItem value={`theme ${t("themeLight")}`} onSelect={() => run(() => setTheme("light"))}>
             <Sun aria-hidden /> {tCommon("theme")}: {t("themeLight")}
@@ -139,7 +136,6 @@ export function CommandMenu({ session, workflows }: { session: SessionUser | nul
 
         {session && (
           <>
-            <CommandSeparator />
             <CommandGroup heading={t("groups.account")}>
               {DEMO_PERSONAS.filter((p) => p.email !== session.email).map((p) => (
                 <CommandItem key={p.email} value={`role ${p.role} ${p.email}`} onSelect={() => run(() => switchRole(p.email))}>

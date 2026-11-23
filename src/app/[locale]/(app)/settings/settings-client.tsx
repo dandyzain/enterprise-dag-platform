@@ -283,7 +283,7 @@ export function SettingsClient({
             </CardHeader>
 
             {/* Desktop matrix */}
-            <div className="hidden overflow-x-auto md:block">
+            <div className="relative hidden overflow-x-auto md:block">
               <table className="w-full border-collapse text-left text-[13px]">
                 <thead>
                   <tr className="border-b border-line bg-surface-2/50 text-xs text-fg-subtle">

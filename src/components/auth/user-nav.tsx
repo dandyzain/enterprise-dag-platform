@@ -79,12 +79,13 @@ export function UserNav({ session, variant = "compact", collapsed = false, align
     variant === "sidebar" ? (
       <button
         type="button"
-        aria-label={t("menu")}
         className={cn(
           "group flex w-full items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors hover:bg-surface-2 data-[state=open]:bg-surface-2",
           collapsed && "justify-center"
         )}
       >
+        <span className="sr-only">{t("menu")}: </span>
+        {collapsed && <span className="sr-only">{name}</span>}
         <Avatar name={session.name} />
         {!collapsed && (
           <>
@@ -99,9 +100,11 @@ export function UserNav({ session, variant = "compact", collapsed = false, align
     ) : (
       <button
         type="button"
-        aria-label={t("menu")}
         className="rounded-lg transition-transform active:scale-95 data-[state=open]:ring-2 data-[state=open]:ring-ring/40"
       >
+        <span className="sr-only">
+          {t("menu")}: {name}
+        </span>
         <Avatar name={session.name} />
       </button>
     );
