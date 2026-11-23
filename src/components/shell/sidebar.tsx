@@ -55,7 +55,7 @@ export function Sidebar({ session, initialCollapsed }: SidebarProps) {
         <Link href="/" aria-label={t("home")} className="group flex items-center gap-2.5 rounded-lg">
           <NexusLogoMark size={28} animated />
           <span className={cn("text-[15px] font-semibold tracking-tight text-fg", labelClass)}>
-            Nexus<span className="text-signal">Flow</span>
+            NexusFlow
           </span>
         </Link>
       </div>

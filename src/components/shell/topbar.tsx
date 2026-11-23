@@ -52,7 +52,7 @@ export function Topbar({ session }: { session: SessionUser | null }) {
         <Link href="/" aria-label={tNav("home")} className="group flex items-center gap-2 md:hidden">
           <NexusLogoMark size={26} animated />
           <span className="text-[15px] font-semibold tracking-tight text-fg">
-            Nexus<span className="text-signal">Flow</span>
+            NexusFlow
           </span>
         </Link>
 
