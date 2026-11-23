@@ -636,17 +636,7 @@
     "save": "Save",
     "publish": "Publish",
     "publishing": "Publishing…",
-    "run": {
-      "title": "Run timeline",
-      "idle": "No run yet. Press Test run to simulate the workflow.",
-      "progress": "{done} of {total} steps",
-      "tier": "Tier {n}",
-      "logs": "Logs",
-      "noLogs": "Run events will appear here.",
-      "clear": "Clear",
-      "collapse": "Collapse timeline",
-      "expand": "Expand timeline"
-    },
+    "run": "Test run",
     "running": "Running…",
     "runOptions": "More run options",
     "testRunHint": "Simulate the DAG on the canvas",
@@ -796,6 +786,17 @@
       "executionId": "Execution ID: {id}",
       "publishFailed": "Couldn't publish workflow",
       "dispatchFailed": "Dispatch failed"
+    },
+    "runPanel": {
+      "title": "Run timeline",
+      "idle": "No run yet. Press Test run to simulate the workflow.",
+      "progress": "{done} of {total} steps",
+      "tier": "Tier {n}",
+      "logs": "Logs",
+      "noLogs": "Run events will appear here.",
+      "clear": "Clear",
+      "collapse": "Collapse timeline",
+      "expand": "Expand timeline"
     }
   }
 }

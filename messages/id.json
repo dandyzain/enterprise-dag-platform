@@ -636,17 +636,7 @@
     "save": "Simpan",
     "publish": "Publikasikan",
     "publishing": "Mempublikasikan…",
-    "run": {
-      "title": "Linimasa eksekusi",
-      "idle": "Belum ada eksekusi. Tekan Uji eksekusi untuk menyimulasikan alur kerja.",
-      "progress": "{done} dari {total} langkah",
-      "tier": "Tingkat {n}",
-      "logs": "Log",
-      "noLogs": "Peristiwa eksekusi akan muncul di sini.",
-      "clear": "Bersihkan",
-      "collapse": "Ciutkan linimasa",
-      "expand": "Bentangkan linimasa"
-    },
+    "run": "Uji eksekusi",
     "running": "Berjalan…",
     "runOptions": "Opsi eksekusi lainnya",
     "testRunHint": "Simulasikan DAG di kanvas",
@@ -796,6 +786,17 @@
       "executionId": "ID eksekusi: {id}",
       "publishFailed": "Gagal memublikasikan alur kerja",
       "dispatchFailed": "Pengiriman gagal"
+    },
+    "runPanel": {
+      "title": "Linimasa eksekusi",
+      "idle": "Belum ada eksekusi. Tekan Uji eksekusi untuk menyimulasikan alur kerja.",
+      "progress": "{done} dari {total} langkah",
+      "tier": "Tingkat {n}",
+      "logs": "Log",
+      "noLogs": "Peristiwa eksekusi akan muncul di sini.",
+      "clear": "Bersihkan",
+      "collapse": "Ciutkan linimasa",
+      "expand": "Bentangkan linimasa"
     }
   }
 }

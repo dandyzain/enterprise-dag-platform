@@ -1,20 +1,59 @@
 "use client";
 
 import React from "react";
-import {
-  BaseEdge,
-  EdgeProps,
-  getBezierPath,
-} from "@xyflow/react";
+import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from "@xyflow/react";
+import { useReducedMotion } from "motion/react";
+import { useTranslations } from "next-intl";
+import { Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCanvasUI } from "./canvas-context";
 
 export interface CustomEdgeData {
   executionState?: "PENDING" | "RUNNING" | "SUCCESS" | "FAILED";
   isAnimatedFlow?: boolean;
 }
 
+const STROKE: Record<string, string> = {
+  SUCCESS: "var(--success)",
+  RUNNING: "var(--running)",
+  FAILED: "var(--failed)",
+};
+
+/** Arrow markers referenced by every edge (one set per state). */
+export function EdgeMarkers() {
+  const markers = [
+    ["default", "var(--line-strong)"],
+    ["selected", "var(--accent)"],
+    ["SUCCESS", "var(--success)"],
+    ["RUNNING", "var(--running)"],
+    ["FAILED", "var(--failed)"],
+  ] as const;
+  return (
+    <svg width="0" height="0" className="absolute" aria-hidden>
+      <defs>
+        {markers.map(([key, color]) => (
+          <marker
+            key={key}
+            id={`nf-arrow-${key}`}
+            viewBox="0 0 10 10"
+            refX="8.5"
+            refY="5"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto-start-reverse"
+          >
+            <path d="M1,1.5 L8.5,5 L1,8.5 Z" fill={color} style={{ fill: color }} />
+          </marker>
+        ))}
+      </defs>
+    </svg>
+  );
+}
+
 export function CustomWorkflowEdge({
   id,
+  source,
+  target,
   sourceX,
   sourceY,
   targetX,
@@ -22,67 +61,97 @@ export function CustomWorkflowEdge({
   sourcePosition,
   targetPosition,
   style = {},
-  markerEnd,
   data,
   selected,
 }: EdgeProps) {
+  const t = useTranslations("editor.node");
+  const reduce = useReducedMotion();
+  const { hoveredEdgeId, onEdgeInsert, onEdgeDelete, cycleNodeIds, readOnly } = useCanvasUI();
   const edgeData = data as CustomEdgeData | undefined;
-  const executionState = edgeData?.executionState;
-  const isAnimatedFlow = edgeData?.isAnimatedFlow || executionState === "RUNNING";
+  const state = edgeData?.executionState;
+  const running = edgeData?.isAnimatedFlow || state === "RUNNING";
 
-  const [edgePath] = getBezierPath({
+  const [path, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
     targetPosition,
+    borderRadius: 14,
+    offset: 18,
   });
+
+  const inCycle = cycleNodeIds.has(source) && cycleNodeIds.has(target);
+  const stroke = inCycle ? "var(--failed)" : state ? STROKE[state] : selected ? "var(--accent)" : "var(--line-strong)";
+  const markerKey = inCycle ? "FAILED" : state ?? (selected ? "selected" : "default");
+  const showControls = !readOnly && (hoveredEdgeId === id || selected);
 
   return (
     <>
-      {/* Background thicker glow when active or selected */}
-      {(selected || isAnimatedFlow || executionState === "SUCCESS") && (
+      {(selected || running || state === "SUCCESS") && (
         <path
-          d={edgePath}
+          d={path}
           fill="none"
-          stroke={
-            executionState === "SUCCESS"
-              ? "rgba(16, 185, 129, 0.2)"
-              : executionState === "RUNNING"
-              ? "rgba(245, 158, 11, 0.3)"
-              : "rgba(16, 185, 129, 0.3)"
-          }
-          strokeWidth={selected ? 6 : 4}
+          stroke={stroke}
+          strokeOpacity={0.18}
+          strokeWidth={selected ? 7 : 5}
           strokeLinecap="round"
+          className="pointer-events-none"
         />
       )}
-
-      {/* Main Base Edge */}
       <BaseEdge
         id={id}
-        path={edgePath}
-        markerEnd={markerEnd}
+        path={path}
+        markerEnd={`url(#nf-arrow-${markerKey})`}
+        interactionWidth={22}
         style={{
           ...style,
-          strokeWidth: selected ? 2.5 : 2,
-          stroke:
-            executionState === "SUCCESS"
-              ? "#10b981"
-              : executionState === "RUNNING"
-              ? "#f59e0b"
-              : executionState === "FAILED"
-              ? "#f43f5e"
-              : selected
-              ? "#10b981"
-              : "#3f3f46",
+          stroke,
+          strokeWidth: selected ? 2.25 : 1.75,
+          strokeDasharray: inCycle ? "5 4" : undefined,
+          transition: "stroke 200ms",
         }}
-        className={cn(
-          isAnimatedFlow && "animated-dag-edge",
-          executionState === "RUNNING" && "animated-dag-edge-running",
-          executionState === "SUCCESS" && "animated-dag-edge-success"
-        )}
+        className={cn(running && "nf-edge-running")}
       />
+      {running && !reduce && (
+        <circle r={3.5} fill="var(--running)" className="pointer-events-none">
+          <animateMotion dur="1.1s" repeatCount="indefinite" path={path} />
+        </circle>
+      )}
+      {showControls && (
+        <EdgeLabelRenderer>
+          <div
+            className="nodrag nopan pointer-events-auto absolute flex items-center gap-0.5 rounded-full border border-line bg-overlay p-0.5 shadow-elev-2"
+            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
+          >
+            <button
+              type="button"
+              aria-label={t("insert")}
+              title={t("insert")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdgeInsert(id, { x: e.clientX, y: e.clientY });
+              }}
+              className="inline-flex size-6 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-accent/15 hover:text-accent pointer-coarse:size-8"
+            >
+              <Plus className="size-3.5" aria-hidden />
+            </button>
+            <button
+              type="button"
+              aria-label={t("deleteEdge")}
+              title={t("deleteEdge")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdgeDelete(id);
+              }}
+              className="inline-flex size-6 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-failed/10 hover:text-failed pointer-coarse:size-8"
+            >
+              <X className="size-3.5" aria-hidden />
+            </button>
+          </div>
+        </EdgeLabelRenderer>
+      )}
     </>
   );
 }
