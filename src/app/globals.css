@@ -1,9 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "./legacy.css";
 
 /* Theme switching is class-based (next-themes writes .dark / .light on <html>). */
-@custom-variant dark (&:where(.dark, .dark *));
+/* Scoped to <html> so third-party "dark"/"light" classes (e.g. React Flow) never leak tokens. */
+@custom-variant dark (&:where(:root.dark, :root.dark *));
 
 /* =========================================================================
    DESIGN TOKENS — "Mission Control"
@@ -13,7 +13,7 @@
    ========================================================================= */
 
 :root,
-.dark {
+:root.dark {
   color-scheme: dark;
 
   /* Surfaces (back → front) */
@@ -69,7 +69,7 @@
   --code-literal: #c4b5fd;
 }
 
-.light {
+:root.light {
   color-scheme: light;
 
   --app: oklch(0.985 0.002 286);
@@ -142,9 +142,6 @@
   --color-code-string: var(--code-string);
   --color-code-number: var(--code-number);
   --color-code-literal: var(--code-literal);
-
-  /* Interim alias so pre-migration markup keeps its hover states. */
-  --color-zinc-850: oklch(0.24 0.006 286);
 
   --shadow-elev-1: var(--elev-1);
   --shadow-elev-2: var(--elev-2);

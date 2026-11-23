@@ -1,31 +1,43 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useRef, useEffect, useDeferredValue } from "react";
 import {
   ReactFlow,
   Background,
-  Controls,
   MiniMap,
   useNodesState,
   useEdgesState,
   addEdge,
-  Connection,
-  Edge,
-  Node,
+  useReactFlow,
   BackgroundVariant,
-  ReactFlowInstance,
   ReactFlowProvider,
+  type Connection,
+  type Edge,
+  type Node,
+  type OnConnectEnd,
 } from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import "./canvas.css";
 import { useTranslations } from "next-intl";
-import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useReducedMotion } from "motion/react";
+import { Layers, Play, Webhook } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "@/i18n/routing";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/patterns/confirm-dialog";
 import { CustomWorkflowNode } from "./custom-node";
-import { CustomWorkflowEdge } from "./custom-edge";
+import { CustomWorkflowEdge, EdgeMarkers } from "./custom-edge";
 import { NodePalette } from "./node-palette";
-import { NodeInspector } from "./node-inspector";
+import { NodeInspector, type InspectorTab } from "./node-inspector";
 import { WorkflowNavbar } from "./workflow-navbar";
-import { MobileWarningBanner } from "./mobile-warning";
+import { MobileTip } from "./mobile-warning";
+import { CanvasToolbar } from "./canvas-toolbar";
+import { NodePicker } from "./node-picker";
+import { RunPanel, type RunLog } from "./run-panel";
+import { ShortcutsDialog } from "./shortcuts-dialog";
+import { CanvasUIProvider, type NodeAction } from "./canvas-context";
+import { useCanvasHistory } from "./hooks/use-canvas-history";
+import { NODE_META, asNodeType, defaultConfig } from "./node-meta";
 import { DAGNode, DAGEdge, NodeData, WorkflowNodeType } from "@/lib/dag/types";
 import { validateDAG } from "@/lib/dag/cycle-detection";
 import { getTopologicalOrder } from "@/lib/dag/topological-sort";
@@ -36,11 +48,15 @@ import {
   saveWorkflowAction,
   publishWorkflowAction,
   triggerWorkflowExecutionAction,
+  getSingleExecutionAction,
 } from "@/lib/actions/workflow-actions";
+import { listCredentialsAction } from "@/lib/actions/credential-actions";
 import { ExecutionHistoryModal } from "./execution-history-modal";
 import { WebhookConsoleModal } from "./webhook-console-modal";
-import { WorkflowExecutionRecord } from "@/lib/services/execution-service";
-import { SessionUser } from "@/lib/services/auth-service";
+import type { WorkflowExecutionRecord } from "@/lib/services/execution-service";
+import type { SessionUser } from "@/lib/services/auth-service";
+import { useExecutionStream, type StreamStep } from "@/hooks/use-execution-stream";
+import { useMediaQuery, BREAKPOINTS } from "@/hooks/use-media-query";
 
 interface WorkflowCanvasProps {
   workflowId: string;
@@ -49,6 +65,10 @@ interface WorkflowCanvasProps {
   initialNodes?: DAGNode[];
   initialEdges?: DAGEdge[];
   session?: SessionUser | null;
+  /** A workflow that hasn't been saved yet (from the template gallery). */
+  isNew?: boolean;
+  /** Execution to replay on load (deep link from the Runs page). */
+  replayExecutionId?: string | null;
 }
 
 const DEFAULT_INITIAL_NODES: DAGNode[] = [
@@ -60,13 +80,7 @@ const DEFAULT_INITIAL_NODES: DAGNode[] = [
       label: "Customer Registered Trigger",
       type: "trigger",
       description: "Captures new customer sign-up events",
-      config: {
-        payload: {
-          customerId: "cust_9824",
-          email: "jane.doe@enterprise.io",
-          tier: "enterprise",
-        },
-      },
+      config: { payload: { customerId: "cust_9824", email: "jane.doe@enterprise.io", tier: "enterprise" } },
     },
   },
   {
@@ -80,9 +94,7 @@ const DEFAULT_INITIAL_NODES: DAGNode[] = [
       config: {
         url: "https://api.internal.corp/billing/{{trigger.body.customerId}}",
         method: "GET",
-        headers: {
-          Authorization: "Bearer token_corp_secret",
-        },
+        headers: { Authorization: "Bearer token_corp_secret" },
       },
     },
   },
@@ -94,29 +106,63 @@ const DEFAULT_INITIAL_NODES: DAGNode[] = [
       label: "Validate Enterprise Tier",
       type: "filter",
       description: "Routes workflow if customer tier is enterprise",
-      config: {
-        field: "{{trigger.body.tier}}",
-        operator: "equals",
-        value: "enterprise",
-      },
+      config: { field: "{{trigger.body.tier}}", operator: "equals", value: "enterprise" },
     },
   },
 ];
 
 const DEFAULT_INITIAL_EDGES: DAGEdge[] = [
-  {
-    id: "edge_trigger_to_action",
-    source: "node_trigger_1",
-    target: "node_action_1",
-    type: "workflowEdge",
-  },
-  {
-    id: "edge_action_to_filter",
-    source: "node_action_1",
-    target: "node_filter_1",
-    type: "workflowEdge",
-  },
+  { id: "edge_trigger_to_action", source: "node_trigger_1", target: "node_action_1", type: "workflowEdge" },
+  { id: "edge_action_to_filter", source: "node_action_1", target: "node_filter_1", type: "workflowEdge" },
 ];
+
+const NODE_WIDTH = 260;
+const FIT_OPTIONS = { padding: 0.3, maxZoom: 1 } as const;
+
+type PickerIntent =
+  | { kind: "add"; flowPos?: { x: number; y: number } }
+  | { kind: "connect"; fromId: string; fromHandle: "source" | "target"; flowPos: { x: number; y: number } }
+  | { kind: "insert"; edgeId: string };
+
+type PendingReplace =
+  | { kind: "template"; templateId: string }
+  | { kind: "import"; nodes: Node[]; edges: Edge[]; name?: string }
+  | null;
+
+/** Stable fingerprint of what gets saved (ignores run state / measurements). */
+function computeSignature(name: string, nodes: { id: string; position?: { x: number; y: number }; data: unknown }[], edges: { id: string; source: string; target: string }[]) {
+  return JSON.stringify([
+    name,
+    nodes.map((n) => {
+      const d = n.data as NodeData;
+      return [n.id, Math.round(n.position?.x ?? 0), Math.round(n.position?.y ?? 0), d?.label, d?.description, d?.type, d?.config];
+    }),
+    edges.map((e) => [e.id, e.source, e.target]),
+  ]);
+}
+
+function readPref<T>(key: string, fallback: T, parse: (v: string) => T): T {
+  try {
+    const v = window.localStorage.getItem(key);
+    return v === null ? fallback : parse(v);
+  } catch {
+    return fallback;
+  }
+}
+
+function writePref(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // per-viewer convenience only
+  }
+}
+
+function isTypingTarget(target: EventTarget | null) {
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+  return el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || Boolean(el.closest?.(".cm-editor"));
+}
 
 function WorkflowCanvasInner({
   workflowId,
@@ -125,9 +171,18 @@ function WorkflowCanvasInner({
   initialNodes = DEFAULT_INITIAL_NODES,
   initialEdges = DEFAULT_INITIAL_EDGES,
   session,
+  isNew = false,
+  replayExecutionId,
 }: WorkflowCanvasProps) {
-  const t = useTranslations("workflow");
+  const t = useTranslations("editor");
+  const tToast = useTranslations("editor.toasts");
+  const tNodes = useTranslations("nodes");
+  const tStatus = useTranslations("status");
   const tValidation = useTranslations("validation");
+  const router = useRouter();
+  const rf = useReactFlow();
+  const reduceMotion = useReducedMotion();
+  const isDesktop = useMediaQuery(BREAKPOINTS.md, true);
 
   const [workflowName, setWorkflowName] = useState(initialName);
   const [workflowStatus, setWorkflowStatus] = useState(initialStatus);
@@ -136,46 +191,94 @@ function WorkflowCanvasInner({
   const [isExecuting, setIsExecuting] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isWebhookModalOpen, setIsWebhookModalOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [isMobilePaletteOpen, setIsMobilePaletteOpen] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("configure");
   const [isPaletteCollapsed, setIsPaletteCollapsed] = useState(false);
+  const [inspectorWidth, setInspectorWidth] = useState(380);
+  const [runPanelOpen, setRunPanelOpen] = useState(false);
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
+  const [picker, setPicker] = useState<{ intent: PickerIntent; at: { x: number; y: number } | null } | null>(null);
+  const [pendingReplace, setPendingReplace] = useState<PendingReplace>(null);
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [logs, setLogs] = useState<RunLog[]>([]);
+  const [credentialNames, setCredentialNames] = useState<string[]>([]);
+  const [modKey, setModKey] = useState("Ctrl ");
 
-  // React Flow state
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(
-    initialNodes as unknown as Node[]
-  );
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(
-    initialEdges as unknown as Edge[]
-  );
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(initialNodes as unknown as Node[]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialEdges as unknown as Edge[]);
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
 
+  const history = useCanvasHistory(nodes, edges, setNodes, setEdges);
+  const { takeSnapshot } = history;
+  const { start: startStream } = useExecutionStream();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const [reactFlowInstance, setReactFlowInstance] =
-    useState<ReactFlowInstance | null>(null);
 
-  // Register custom node & edge types
-  const nodeTypes = useMemo(
-    () => ({
-      workflowNode: CustomWorkflowNode,
-    }),
+  const nodeTypes = useMemo(() => ({ workflowNode: CustomWorkflowNode }), []);
+  const edgeTypes = useMemo(() => ({ workflowEdge: CustomWorkflowEdge }), []);
+
+  // ---- Preferences & environment -----------------------------------------
+  useEffect(() => {
+    setIsPaletteCollapsed(readPref("nf-palette-collapsed", false, (v) => v === "1"));
+    setInspectorWidth(readPref("nf-inspector-width", 380, (v) => Math.min(580, Math.max(320, Number(v) || 380))));
+    setModKey(/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? "⌘" : "Ctrl ");
+    listCredentialsAction()
+      .then((list) => setCredentialNames(list.map((c) => c.name)))
+      .catch(() => {});
+  }, []);
+
+  const log = useCallback((level: RunLog["level"], message: string) => {
+    setLogs((prev) => [...prev.slice(-199), { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, at: Date.now(), level, message }]);
+  }, []);
+
+  const labelOf = useCallback(
+    (nodeId: string) => (nodesRef.current.find((n) => n.id === nodeId)?.data as unknown as NodeData | undefined)?.label || nodeId,
     []
   );
 
-  const edgeTypes = useMemo(
-    () => ({
-      workflowEdge: CustomWorkflowEdge,
-    }),
-    []
+  // ---- Validation & dirty state --------------------------------------------
+  const dagValidation = useMemo(
+    () => validateDAG(nodes as unknown as DAGNode[], edges as unknown as DAGEdge[]),
+    [nodes, edges]
+  );
+  const cycleNodeIds = useMemo(
+    () => new Set(dagValidation.hasCycle ? dagValidation.cycleNodes ?? [] : []),
+    [dagValidation]
   );
 
-  // Active DAG Validation
-  const dagValidation = useMemo(() => {
-    return validateDAG(
-      nodes as unknown as DAGNode[],
-      edges as unknown as DAGEdge[]
-    );
-  }, [nodes, edges]);
+  const deferredNodes = useDeferredValue(nodes);
+  const deferredEdges = useDeferredValue(edges);
+  const signature = useMemo(
+    () => computeSignature(workflowName, deferredNodes as unknown as DAGNode[], deferredEdges),
+    [workflowName, deferredNodes, deferredEdges]
+  );
+  const [savedSignature, setSavedSignature] = useState(() =>
+    isNew ? "" : computeSignature(initialName, initialNodes, initialEdges)
+  );
+  const isDirty = signature !== savedSignature;
+  const saveState = isSaving ? "saving" : isDirty ? "unsaved" : "saved";
 
-  // Connect edge handler with immediate cycle check
+  useEffect(() => {
+    if (!isDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [isDirty]);
+
+  // Drop selection if the node disappears (delete, undo, template…).
+  useEffect(() => {
+    if (selectedNodeId && !nodes.some((n) => n.id === selectedNodeId)) setSelectedNodeId(null);
+  }, [nodes, selectedNodeId]);
+
+  const fitSoon = useCallback(() => {
+    requestAnimationFrame(() => rf.fitView({ ...FIT_OPTIONS, duration: reduceMotion ? 0 : 400 }));
+  }, [rf, reduceMotion]);
+
+  // ---- Graph editing ----------------------------------------------------------
   const onConnect = useCallback(
     (params: Connection) => {
       const newEdge: Edge = {
@@ -184,87 +287,66 @@ function WorkflowCanvasInner({
         type: "workflowEdge",
       };
 
-      const candidateEdges = [...edges, newEdge];
-      const check = validateDAG(
-        nodes as unknown as DAGNode[],
-        candidateEdges as unknown as DAGEdge[]
-      );
-
+      const check = validateDAG(nodes as unknown as DAGNode[], [...edges, newEdge] as unknown as DAGEdge[]);
       if (check.hasCycle) {
         toast.error(tValidation("dagCycleDetected"), {
-          description: tValidation("cyclePath", {
-            path: check.cycleNodes?.join(" → ") || "",
-          }),
+          description: tValidation("cyclePath", { path: check.cycleNodes?.join(" → ") || "" }),
         });
         return;
       }
 
+      takeSnapshot();
       setEdges((eds) => addEdge(newEdge, eds));
     },
-    [edges, nodes, setEdges, tValidation]
+    [edges, nodes, setEdges, tValidation, takeSnapshot]
   );
 
-  // Node Selection Handler
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-    setSelectedNodeId(node.id);
-  }, []);
+  const buildNode = useCallback(
+    (type: WorkflowNodeType, position: { x: number; y: number }): Node => {
+      const newId = `node_${type}_${Date.now().toString().slice(-5)}`;
+      const data: NodeData = {
+        label: tNodes(`${type}.defaultLabel`),
+        type,
+        description: "",
+        config: defaultConfig(type, newId),
+      };
+      return { id: newId, type: "workflowNode", position, data: data as unknown as Record<string, unknown>, selected: true };
+    },
+    [tNodes]
+  );
 
-  const onPaneClick = useCallback(() => {
-    setSelectedNodeId(null);
-  }, []);
+  /** Flow-space point at the visual centre of the canvas, nudged so repeated adds cascade. */
+  const viewportCenter = useCallback(() => {
+    const rect = reactFlowWrapper.current?.getBoundingClientRect();
+    const center = rect
+      ? rf.screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+      : { x: 300, y: 200 };
+    const nudge = (nodesRef.current.length % 5) * 24;
+    return { x: center.x - NODE_WIDTH / 2 + nudge, y: center.y - 50 + nudge };
+  }, [rf]);
 
-  // Adding node from palette (Click or Drag Drop)
+  const insertNodes = useCallback(
+    (newNode: Node, extraEdges: Edge[] = [], removeEdgeId?: string) => {
+      takeSnapshot();
+      setNodes((nds) => [...nds.map((n) => (n.selected ? { ...n, selected: false } : n)), newNode]);
+      if (extraEdges.length || removeEdgeId) {
+        setEdges((eds) => [...eds.filter((e) => e.id !== removeEdgeId), ...extraEdges]);
+      }
+      setSelectedNodeId(newNode.id);
+      setInspectorTab("configure");
+      toast.success(t("node.added", { label: (newNode.data as unknown as NodeData).label }));
+    },
+    [setEdges, setNodes, t, takeSnapshot]
+  );
+
+  // Adding node from palette (click or drag & drop) — same defaults as before.
   const handleAddNode = useCallback(
     (type: WorkflowNodeType, position?: { x: number; y: number }) => {
-      const newId = `node_${type}_${Date.now().toString().slice(-5)}`;
-      const labels: Record<WorkflowNodeType, string> = {
-        trigger: "Manual Ingestion Trigger",
-        webhook: "Inbound Webhook",
-        action: "HTTP Request Action",
-        filter: "Boolean Filter Gate",
-      };
-
-      const defaultConfigs: Record<WorkflowNodeType, Record<string, unknown>> = {
-        trigger: { payload: { timestamp: Date.now() } },
-        webhook: { path: `wh-${newId}`, secretHeader: "" },
-        action: {
-          url: "https://api.example.com/v1/resource",
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: { eventId: "{{trigger.body.id}}" },
-        },
-        filter: {
-          field: "{{trigger.body.tier}}",
-          operator: "equals",
-          value: "enterprise",
-        },
-      };
-
-      const pos = position || {
-        x: 300 + Math.floor(Math.random() * 80) - 40,
-        y: 200 + nodes.length * 60,
-      };
-
-      const newNode: DAGNode = {
-        id: newId,
-        type: "workflowNode",
-        position: pos,
-        data: {
-          label: labels[type],
-          type,
-          description: `Configured ${type} pipeline step`,
-          config: defaultConfigs[type],
-        },
-      };
-
-      setNodes((nds) => [...nds, newNode as unknown as Node]);
-      setSelectedNodeId(newId);
-      toast.success(`Added ${labels[type]}`);
+      insertNodes(buildNode(type, position ?? viewportCenter()));
     },
-    [nodes.length, setNodes]
+    [buildNode, insertNodes, viewportCenter]
   );
 
-  // Drag and Drop canvas handlers
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
@@ -273,137 +355,212 @@ function WorkflowCanvasInner({
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-      const nodeType = event.dataTransfer.getData(
-        "application/reactflow"
-      ) as WorkflowNodeType;
-
-      if (!nodeType || !reactFlowInstance || !reactFlowWrapper.current) {
-        return;
-      }
-
-      const bounds = reactFlowWrapper.current.getBoundingClientRect();
-      const position = reactFlowInstance.screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
-      });
-
-      handleAddNode(nodeType, position);
+      const nodeType = event.dataTransfer.getData("application/reactflow") as WorkflowNodeType;
+      if (!nodeType) return;
+      const position = rf.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      handleAddNode(nodeType, { x: position.x - NODE_WIDTH / 2, y: position.y - 30 });
     },
-    [handleAddNode, reactFlowInstance]
+    [handleAddNode, rf]
   );
 
-  // Node Inspector updates
   const handleUpdateNode = useCallback(
     (nodeId: string, updatedData: Partial<NodeData>) => {
+      takeSnapshot({ coalesceMs: 800 });
       setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id === nodeId) {
-            return {
-              ...n,
-              data: {
-                ...(n.data as unknown as NodeData),
-                ...updatedData,
-              },
-            };
-          }
-          return n;
-        })
+        nds.map((n) => (n.id === nodeId ? { ...n, data: { ...(n.data as unknown as NodeData), ...updatedData } } : n))
       );
     },
-    [setNodes]
+    [setNodes, takeSnapshot]
   );
 
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
+      takeSnapshot();
       setNodes((nds) => nds.filter((n) => n.id !== nodeId));
-      setEdges((eds) =>
-        eds.filter((e) => e.source !== nodeId && e.target !== nodeId)
-      );
-      if (selectedNodeId === nodeId) {
-        setSelectedNodeId(null);
-      }
-      toast.info(`Node ${nodeId} deleted`);
+      setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+      if (selectedNodeId === nodeId) setSelectedNodeId(null);
+      toast(t("node.deleted"), { action: { label: t("node.undo"), onClick: () => history.undo() } });
     },
-    [selectedNodeId, setEdges, setNodes]
+    [history, selectedNodeId, setEdges, setNodes, t, takeSnapshot]
   );
 
-  // Reset execution highlighting
+  const handleDuplicate = useCallback(
+    (nodeId: string) => {
+      const src = nodesRef.current.find((n) => n.id === nodeId);
+      if (!src) return;
+      const data = src.data as unknown as NodeData;
+      const type = asNodeType(data.type);
+      const copy = buildNode(type, { x: src.position.x + 40, y: src.position.y + 40 });
+      copy.data = {
+        ...(data as unknown as Record<string, unknown>),
+        executionState: undefined,
+        executionError: undefined,
+        executionDurationMs: undefined,
+        config: structuredClone(data.config ?? {}),
+      };
+      insertNodes(copy);
+    },
+    [buildNode, insertNodes]
+  );
+
+  const handleEdgeDelete = useCallback(
+    (edgeId: string) => {
+      takeSnapshot();
+      setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+    },
+    [setEdges, takeSnapshot]
+  );
+
+  const openPicker = useCallback((intent: PickerIntent, at: { x: number; y: number } | null = null) => {
+    setPicker({ intent, at });
+  }, []);
+
+  const onConnectEnd: OnConnectEnd = useCallback(
+    (event, state) => {
+      if (state.isValid || !state.fromNode || state.toNode) return;
+      const point = "changedTouches" in event ? event.changedTouches[0] : event;
+      const flowPos = rf.screenToFlowPosition({ x: point.clientX, y: point.clientY });
+      openPicker(
+        {
+          kind: "connect",
+          fromId: state.fromNode.id,
+          fromHandle: state.fromHandle?.type === "target" ? "target" : "source",
+          flowPos,
+        },
+        { x: point.clientX, y: point.clientY }
+      );
+    },
+    [openPicker, rf]
+  );
+
+  const handlePick = useCallback(
+    (type: WorkflowNodeType) => {
+      const current = picker;
+      setPicker(null);
+      if (!current) return;
+      const { intent } = current;
+
+      if (intent.kind === "add") {
+        const pos = intent.flowPos ? { x: intent.flowPos.x - NODE_WIDTH / 2, y: intent.flowPos.y - 30 } : viewportCenter();
+        insertNodes(buildNode(type, pos));
+        return;
+      }
+
+      if (intent.kind === "connect") {
+        const node = buildNode(type, { x: intent.flowPos.x - NODE_WIDTH / 2, y: intent.flowPos.y - (intent.fromHandle === "source" ? 10 : 90) });
+        const edge: Edge =
+          intent.fromHandle === "source"
+            ? { id: `edge_${intent.fromId}_${node.id}_${Date.now()}`, source: intent.fromId, target: node.id, type: "workflowEdge" }
+            : { id: `edge_${node.id}_${intent.fromId}_${Date.now()}`, source: node.id, target: intent.fromId, type: "workflowEdge" };
+        insertNodes(node, [edge]);
+        return;
+      }
+
+      // Insert into an existing edge: A → B  becomes  A → new → B
+      const edge = edges.find((e) => e.id === intent.edgeId);
+      if (!edge) return;
+      const a = nodesRef.current.find((n) => n.id === edge.source);
+      const b = nodesRef.current.find((n) => n.id === edge.target);
+      if (!a || !b) return;
+      const node = buildNode(type, { x: (a.position.x + b.position.x) / 2 + 24, y: (a.position.y + b.position.y) / 2 });
+      const stamp = Date.now();
+      insertNodes(
+        node,
+        [
+          { id: `edge_${a.id}_${node.id}_${stamp}`, source: a.id, target: node.id, type: "workflowEdge" },
+          { id: `edge_${node.id}_${b.id}_${stamp}`, source: node.id, target: b.id, type: "workflowEdge" },
+        ],
+        edge.id
+      );
+    },
+    [buildNode, edges, insertNodes, picker, viewportCenter]
+  );
+
+  const pickerAllowed: WorkflowNodeType[] | undefined =
+    picker && (picker.intent.kind === "insert" || (picker.intent.kind === "connect" && picker.intent.fromHandle === "source"))
+      ? ["action", "filter"]
+      : undefined;
+
+  // ---- Execution state helpers ------------------------------------------------
   const handleResetExecution = useCallback(() => {
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
-        data: {
-          ...(n.data as unknown as NodeData),
-          executionState: undefined,
-          executionError: undefined,
-          executionDurationMs: undefined,
-        },
+        data: { ...(n.data as unknown as NodeData), executionState: undefined, executionError: undefined, executionDurationMs: undefined },
       }))
     );
-    setEdges((eds) =>
-      eds.map((e) => ({
-        ...e,
-        data: {
-          ...(e.data || {}),
-          executionState: undefined,
-          isAnimatedFlow: false,
-        },
-      }))
-    );
+    setEdges((eds) => eds.map((e) => ({ ...e, data: { ...(e.data || {}), executionState: undefined, isAnimatedFlow: false } })));
   }, [setEdges, setNodes]);
 
-  // Save Workflow Action with Server Action persistence & strict cycle validation
-  const handleSave = useCallback(async () => {
+  const applyStreamStep = useCallback(
+    (step: StreamStep) => {
+      const { nodeId, status } = step;
+      const duration = step.durationMs ?? undefined;
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === nodeId
+            ? {
+                ...n,
+                data: {
+                  ...(n.data as unknown as NodeData),
+                  executionState: status,
+                  executionDurationMs: duration,
+                  executionError: step.errorMessage || undefined,
+                },
+              }
+            : n
+        )
+      );
+      setEdges((eds) =>
+        eds.map((edge) =>
+          edge.target === nodeId
+            ? { ...edge, data: { ...edge.data, executionState: status, isAnimatedFlow: status === "RUNNING" } }
+            : edge
+        )
+      );
+      log(
+        status === "FAILED" ? "error" : status === "SUCCESS" ? "success" : status === "RUNNING" ? "running" : "info",
+        `${labelOf(nodeId)} — ${tStatus(status)}${duration !== undefined ? ` (${duration}ms)` : ""}${step.errorMessage ? `: ${step.errorMessage}` : ""}`
+      );
+    },
+    [labelOf, log, setEdges, setNodes, tStatus]
+  );
+
+  // ---- Save / publish (same server actions & payload as before) -----------------
+  const handleSave = useCallback(async (): Promise<boolean> => {
     if (dagValidation.hasCycle) {
       toast.error(tValidation("dagCycleDetected"), {
-        description: tValidation("cyclePath", {
-          path: dagValidation.cycleNodes?.join(" → ") || "",
-        }),
+        description: tValidation("cyclePath", { path: dagValidation.cycleNodes?.join(" → ") || "" }),
       });
-      return;
+      return false;
     }
 
     setIsSaving(true);
+    const snapshotSignature = computeSignature(workflowName, nodes as unknown as DAGNode[], edges);
     try {
       const result = await saveWorkflowAction({
         id: workflowId,
         name: workflowName,
         status: workflowStatus,
-        nodes: nodes.map((n) => ({
-          id: n.id,
-          type: n.type,
-          position: n.position,
-          data: n.data as unknown as NodeData,
-        })),
-        edges: edges.map((e) => ({
-          id: e.id,
-          source: e.source,
-          target: e.target,
-          type: e.type,
-        })),
+        nodes: nodes.map((n) => ({ id: n.id, type: n.type, position: n.position, data: n.data as unknown as NodeData })),
+        edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target, type: e.type })),
       });
 
       if (!result.success) {
         toast.error(result.error || tValidation("saveFailed"));
-      } else {
-        toast.success(tValidation("savedSuccess"));
+        return false;
       }
+      setSavedSignature(snapshotSignature);
+      toast.success(tValidation("savedSuccess"));
+      return true;
     } catch {
       toast.error(tValidation("saveFailed"));
+      return false;
     } finally {
       setIsSaving(false);
     }
-  }, [
-    dagValidation,
-    nodes,
-    edges,
-    workflowName,
-    workflowId,
-    workflowStatus,
-    tValidation,
-  ]);
+  }, [dagValidation, nodes, edges, workflowName, workflowId, workflowStatus, tValidation]);
 
-  // Publish Workflow Action
   const handlePublish = useCallback(async () => {
     if (dagValidation.hasCycle) {
       toast.error(tValidation("dagCycleDetected"));
@@ -418,87 +575,143 @@ function WorkflowCanvasInner({
         setWorkflowStatus("PUBLISHED");
         toast.success(tValidation("publishedSuccess"));
       } else {
-        toast.error(res.error || "Failed to publish workflow");
+        toast.error(res.error || tToast("publishFailed"));
       }
     } catch {
-      toast.error("Error occurred while publishing workflow.");
+      toast.error(tToast("publishFailed"));
     } finally {
       setIsPublishing(false);
     }
-  }, [dagValidation, handleSave, workflowId, tValidation]);
+  }, [dagValidation, handleSave, workflowId, tValidation, tToast]);
 
-  // Replay historical execution on the visual canvas
+  // ---- Replay a historical execution on the canvas -------------------------------
   const handleReplayExecution = useCallback(
     (exec: WorkflowExecutionRecord) => {
       setNodes((nds) =>
         nds.map((n) => {
           const step = exec.steps.find((s) => s.nodeId === n.id);
-          if (step) {
-            return {
-              ...n,
-              data: {
-                ...(n.data as unknown as NodeData),
-                executionState: step.status,
-                executionError: step.errorMessage || undefined,
-                executionDurationMs: step.durationMs || undefined,
-              },
-            };
-          }
-          return n;
-        })
-      );
-
-      setEdges((eds) =>
-        eds.map((e) => {
-          const targetStep = exec.steps.find((s) => s.nodeId === e.target);
+          if (!step) return n;
           return {
-            ...e,
+            ...n,
             data: {
-              ...(e.data || {}),
-              executionState: targetStep?.status || "SUCCESS",
-              isAnimatedFlow: false,
+              ...(n.data as unknown as NodeData),
+              executionState: step.status,
+              executionError: step.errorMessage || undefined,
+              executionDurationMs: step.durationMs || undefined,
             },
           };
         })
       );
-
-      toast.info(`Replaying execution audit log: ${exec.id}`);
+      setEdges((eds) =>
+        eds.map((e) => {
+          const targetStep = exec.steps.find((s) => s.nodeId === e.target);
+          return { ...e, data: { ...(e.data || {}), executionState: targetStep?.status || "SUCCESS", isAnimatedFlow: false } };
+        })
+      );
+      setRunPanelOpen(true);
+      log("info", tToast("replay", { id: exec.id }));
+      for (const step of exec.steps) {
+        log(
+          step.status === "FAILED" ? "error" : step.status === "SUCCESS" ? "success" : "info",
+          `${step.nodeId} — ${tStatus(step.status)}${step.durationMs ? ` (${step.durationMs}ms)` : ""}`
+        );
+      }
+      toast.info(tToast("replay", { id: exec.id }));
     },
-    [setEdges, setNodes]
+    [log, setEdges, setNodes, tStatus, tToast]
   );
 
-  // Auto-Layout DAG hierarchical coordinates
-  const handleAutoLayout = useCallback(() => {
-    const tidied = autoLayoutDAG(
-      nodes as unknown as DAGNode[],
-      edges as unknown as DAGEdge[]
-    );
-    setNodes(tidied as unknown as Node[]);
-    toast.success("DAG visual hierarchy auto-aligned");
-  }, [edges, nodes, setNodes]);
+  const replayRequested = useRef(false);
+  useEffect(() => {
+    if (!replayExecutionId || replayRequested.current) return;
+    replayRequested.current = true;
+    getSingleExecutionAction(replayExecutionId)
+      .then((exec) => exec && handleReplayExecution(exec))
+      .catch(() => {});
+  }, [replayExecutionId, handleReplayExecution]);
 
-  // Export Workflow Blueprint as JSON
+  // ---- Layout (animated) ---------------------------------------------------------
+  const animatePositions = useCallback(
+    (targets: Map<string, { x: number; y: number }>) =>
+      new Promise<void>((resolve) => {
+        if (reduceMotion) {
+          setNodes((nds) => nds.map((n) => (targets.has(n.id) ? { ...n, position: targets.get(n.id)! } : n)));
+          resolve();
+          return;
+        }
+        const from = new Map(nodesRef.current.map((n) => [n.id, n.position]));
+        const start = performance.now();
+        const D = 460;
+        const step = (now: number) => {
+          const p = Math.min(1, (now - start) / D);
+          const e = 1 - Math.pow(1 - p, 3);
+          setNodes((nds) =>
+            nds.map((n) => {
+              const a = from.get(n.id);
+              const b = targets.get(n.id);
+              if (!a || !b) return n;
+              return { ...n, position: { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e } };
+            })
+          );
+          if (p < 1) requestAnimationFrame(step);
+          else resolve();
+        };
+        requestAnimationFrame(step);
+      }),
+    [reduceMotion, setNodes]
+  );
+
+  const handleAutoLayout = useCallback(async () => {
+    const tidied = autoLayoutDAG(nodes as unknown as DAGNode[], edges as unknown as DAGEdge[]);
+    takeSnapshot();
+    await animatePositions(new Map(tidied.map((n) => [n.id, n.position ?? { x: 0, y: 0 }])));
+    fitSoon();
+    toast.success(tToast("layout"));
+  }, [animatePositions, edges, fitSoon, nodes, tToast, takeSnapshot]);
+
+  // ---- Export / import / templates --------------------------------------------------
   const handleExportJSON = useCallback(() => {
-    const exportData = {
-      name: workflowName,
-      status: workflowStatus,
-      exportedAt: new Date().toISOString(),
-      nodes,
-      edges,
-    };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-      type: "application/json",
-    });
+    const exportData = { name: workflowName, status: workflowStatus, exportedAt: new Date().toISOString(), nodes, edges };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `nexusflow_${workflowName.toLowerCase().replace(/\s+/g, "_")}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Workflow blueprint exported as JSON");
-  }, [workflowName, workflowStatus, nodes, edges]);
+    toast.success(tToast("exported"));
+  }, [workflowName, workflowStatus, nodes, edges, tToast]);
 
-  // Import Workflow Blueprint from JSON
+  const applyReplace = useCallback(
+    (replace: Exclude<PendingReplace, null>) => {
+      takeSnapshot();
+      if (replace.kind === "import") {
+        setNodes(replace.nodes);
+        setEdges(replace.edges);
+        if (replace.name) setWorkflowName(replace.name);
+        toast.success(tToast("imported"));
+      } else {
+        const tmpl = WORKFLOW_TEMPLATES.find((tpl) => tpl.id === replace.templateId);
+        if (!tmpl) return;
+        setNodes(tmpl.nodes as unknown as Node[]);
+        setEdges(tmpl.edges as unknown as Edge[]);
+        setWorkflowName(tmpl.name);
+        toast.success(tToast("templateLoaded", { name: tmpl.name }));
+      }
+      setSelectedNodeId(null);
+      fitSoon();
+    },
+    [fitSoon, setEdges, setNodes, tToast, takeSnapshot]
+  );
+
+  const requestReplace = useCallback(
+    (replace: Exclude<PendingReplace, null>) => {
+      if (nodesRef.current.length > 0) setPendingReplace(replace);
+      else applyReplace(replace);
+    },
+    [applyReplace]
+  );
+
   const handleImportJSON = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
@@ -507,423 +720,250 @@ function WorkflowCanvasInner({
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
       try {
-        const text = await file.text();
-        const parsed = JSON.parse(text);
+        const parsed = JSON.parse(await file.text());
         if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
-          toast.error("Invalid blueprint format: missing nodes/edges arrays.");
+          toast.error(tToast("importInvalid"));
           return;
         }
-        const validation = validateDAG(parsed.nodes, parsed.edges);
-        if (validation.hasCycle) {
-          toast.error("Import rejected: circular loops detected in blueprint.");
+        if (validateDAG(parsed.nodes, parsed.edges).hasCycle) {
+          toast.error(tToast("importCycle"));
           return;
         }
-        setNodes(parsed.nodes);
-        setEdges(parsed.edges);
-        if (parsed.name) setWorkflowName(parsed.name);
-        toast.success("Workflow blueprint imported successfully!");
+        requestReplace({ kind: "import", nodes: parsed.nodes, edges: parsed.edges, name: parsed.name });
       } catch {
-        toast.error("Failed to parse blueprint JSON file.");
+        toast.error(tToast("importParse"));
       }
     };
     input.click();
-  }, [setNodes, setEdges]);
+  }, [requestReplace, tToast]);
 
-  // Load Preset Template
   const handleSelectTemplate = useCallback(
-    (templateId: string) => {
-      const tmpl = WORKFLOW_TEMPLATES.find((t) => t.id === templateId);
-      if (!tmpl) return;
-      setNodes(tmpl.nodes as unknown as Node[]);
-      setEdges(tmpl.edges as unknown as Edge[]);
-      setWorkflowName(tmpl.name);
-      toast.success(`Loaded template: ${tmpl.name}`);
-    },
-    [setNodes, setEdges]
+    (templateId: string) => requestReplace({ kind: "template", templateId }),
+    [requestReplace]
   );
 
-  // Execute Test Run with Live DAG Replay
+  // ---- Test run: simulated topological replay (unchanged algorithm) -------------------
   const handleExecuteTest = useCallback(async () => {
     if (dagValidation.hasCycle) {
       toast.error(tValidation("dagCycleDetected"));
       return;
     }
-
     if (nodes.length === 0) {
-      toast.warning(t("canvas.emptyCanvas"));
+      toast.warning(t("empty.title"));
       return;
     }
 
     setIsExecuting(true);
+    setRunPanelOpen(true);
     handleResetExecution();
     toast.info(tValidation("executionStarted"));
+    log("info", t("run"));
 
     try {
-      // 1. Topological Sorting Kahn's algorithm
-      const { sortedNodeIds } = getTopologicalOrder(
-        nodes as unknown as DAGNode[],
-        edges as unknown as DAGEdge[]
-      );
-
-      // 2. Prepare Context
+      const { sortedNodeIds } = getTopologicalOrder(nodes as unknown as DAGNode[], edges as unknown as DAGEdge[]);
       const context: ExecutionContext = {
-        trigger: {
-          body: {
-            customerId: "cust_9824",
-            tier: "enterprise",
-            email: "jane.doe@enterprise.io",
-          },
-        },
+        trigger: { body: { customerId: "cust_9824", tier: "enterprise", email: "jane.doe@enterprise.io" } },
         steps: {},
       };
 
-      // 3. Sequentially step through nodes in topological dependency order
-      for (let i = 0; i < sortedNodeIds.length; i++) {
-        const currentNodeId = sortedNodeIds[i];
-
-        // Animate incoming edge
+      for (const currentNodeId of sortedNodeIds) {
         setEdges((eds) =>
           eds.map((e) =>
-            e.target === currentNodeId
-              ? {
-                  ...e,
-                  data: {
-                    ...e.data,
-                    executionState: "RUNNING",
-                    isAnimatedFlow: true,
-                  },
-                }
-              : e
+            e.target === currentNodeId ? { ...e, data: { ...e.data, executionState: "RUNNING", isAnimatedFlow: true } } : e
           )
         );
-
-        // Mark Node as Running
         setNodes((nds) =>
           nds.map((n) =>
-            n.id === currentNodeId
-              ? {
-                  ...n,
-                  data: {
-                    ...(n.data as unknown as NodeData),
-                    executionState: "RUNNING",
-                  },
-                }
-              : n
+            n.id === currentNodeId ? { ...n, data: { ...(n.data as unknown as NodeData), executionState: "RUNNING" } } : n
           )
         );
+        const nodeItem = nodes.find((n) => n.id === currentNodeId);
+        const nodeData = nodeItem?.data as unknown as NodeData;
+        log("running", `${nodeData?.label || currentNodeId} — ${tStatus("RUNNING")}`);
 
-        // Execution step simulation delay
         const stepStart = performance.now();
         await new Promise((resolve) => setTimeout(resolve, 800));
         const duration = Math.round(performance.now() - stepStart);
 
-        // Find current node config & resolve variable interpolation
-        const nodeItem = nodes.find((n) => n.id === currentNodeId);
-        const nodeData = nodeItem?.data as unknown as NodeData;
-        const resolvedConfig = interpolateVariables(
-          nodeData?.config || {},
-          context
-        );
-
-        // Register output in context
+        const resolvedConfig = interpolateVariables(nodeData?.config || {}, context);
         if (context.steps) {
-          context.steps[currentNodeId] = {
-            output: {
-              success: true,
-              data: resolvedConfig,
-            },
-            status: "SUCCESS",
-          };
+          context.steps[currentNodeId] = { output: { success: true, data: resolvedConfig }, status: "SUCCESS" };
         }
 
-        // Mark Node as Success
         setNodes((nds) =>
           nds.map((n) =>
             n.id === currentNodeId
-              ? {
-                  ...n,
-                  data: {
-                    ...(n.data as unknown as NodeData),
-                    executionState: "SUCCESS",
-                    executionDurationMs: duration,
-                  },
-                }
+              ? { ...n, data: { ...(n.data as unknown as NodeData), executionState: "SUCCESS", executionDurationMs: duration } }
               : n
           )
         );
-
-        // Update incoming edge to success
         setEdges((eds) =>
           eds.map((e) =>
-            e.target === currentNodeId
-              ? {
-                  ...e,
-                  data: {
-                    ...e.data,
-                    executionState: "SUCCESS",
-                    isAnimatedFlow: false,
-                  },
-                }
-              : e
+            e.target === currentNodeId ? { ...e, data: { ...e.data, executionState: "SUCCESS", isAnimatedFlow: false } } : e
           )
         );
+        log("success", `${nodeData?.label || currentNodeId} — ${tStatus("SUCCESS")} (${duration}ms)`);
       }
 
-      toast.success(tValidation("publishedSuccess"), {
-        description: "All DAG steps executed successfully in topological order.",
-      });
+      toast.success(tToast("runComplete"));
+      log("success", tToast("runComplete"));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Execution failed";
-      toast.error(tValidation("executionFailed"), {
-        description: msg,
-      });
+      toast.error(tValidation("executionFailed"), { description: msg });
+      log("error", msg);
     } finally {
       setIsExecuting(false);
     }
-  }, [
-    dagValidation,
-    edges,
-    handleResetExecution,
-    nodes,
-    setEdges,
-    setNodes,
-    t,
-    tValidation,
-  ]);
+  }, [dagValidation, edges, handleResetExecution, log, nodes, setEdges, setNodes, t, tStatus, tToast, tValidation]);
 
-  // Dispatch Real-time Live Queue Execution with Server-Sent Events (SSE) Stream
+  // ---- Dispatch to BullMQ + live SSE stream ---------------------------------------
+  const streamExecution = useCallback(
+    (execId: string, doneMessages: { ok: string; fail: string }) => {
+      startStream(workflowId, execId, {
+        onStep: applyStreamStep,
+        onComplete: (status) => {
+          if (status === "SUCCESS") {
+            toast.success(doneMessages.ok, { description: tToast("executionId", { id: execId }) });
+            log("success", doneMessages.ok);
+          } else {
+            toast.error(doneMessages.fail, { description: tToast("executionId", { id: execId }) });
+            log("error", doneMessages.fail);
+          }
+          setIsExecuting(false);
+        },
+        onError: () => setIsExecuting(false),
+      });
+    },
+    [applyStreamStep, log, startStream, tToast, workflowId]
+  );
+
   const handleDispatchLiveQueue = useCallback(async () => {
     if (dagValidation.hasCycle) {
       toast.error(tValidation("dagCycleDetected"));
       return;
     }
-
     if (nodes.length === 0) {
-      toast.warning(t("canvas.emptyCanvas"));
+      toast.warning(t("empty.title"));
       return;
     }
 
     setIsExecuting(true);
+    setRunPanelOpen(true);
     handleResetExecution();
-    toast.info("Enqueuing job to BullMQ queue...");
+    toast.info(tToast("enqueueing"));
+    log("info", tToast("enqueueing"));
 
     try {
-      // 1. Ensure latest canvas layout is persisted
       await handleSave();
 
-      // 2. Extract trigger payload if available
-      const triggerNode = nodes.find(
-        (n) => (n.data as unknown as NodeData).type === "trigger"
-      );
-      const rawPayload =
-        (triggerNode?.data as unknown as NodeData)?.config?.payload || {
-          manualTrigger: true,
-          timestamp: Date.now(),
-        };
-
+      const triggerNode = nodes.find((n) => (n.data as unknown as NodeData).type === "trigger");
+      const rawPayload = (triggerNode?.data as unknown as NodeData)?.config?.payload || { manualTrigger: true, timestamp: Date.now() };
       const triggerPayload: Record<string, unknown> =
-        typeof rawPayload === "object" && rawPayload !== null
-          ? (rawPayload as Record<string, unknown>)
-          : { value: rawPayload };
+        typeof rawPayload === "object" && rawPayload !== null ? (rawPayload as Record<string, unknown>) : { value: rawPayload };
 
-      // 3. Dispatch to background queue via Server Action
-      const result = await triggerWorkflowExecutionAction(
-        workflowId,
-        triggerPayload
-      );
-
+      const result = await triggerWorkflowExecutionAction(workflowId, triggerPayload);
       if (!result.success || !result.executionId) {
-        toast.error(result.error || "Failed to enqueue workflow job.");
+        toast.error(result.error || tToast("queueFailed"));
+        log("error", result.error || tToast("queueFailed"));
         setIsExecuting(false);
         return;
       }
 
-      toast.success(
-        `Job queued (${result.mode || "distributed"}). Streaming real-time telemetry...`
-      );
-
-      // 4. Connect to Server-Sent Events (SSE) Stream
-      const streamUrl = `/api/workflows/${workflowId}/executions/${result.executionId}/stream`;
-      const eventSource = new EventSource(streamUrl);
-
-      eventSource.addEventListener("step_recorded", (e) => {
-        try {
-          const step = JSON.parse(e.data);
-          const nodeId = step.nodeId as string;
-          const status = step.status as string;
-          const duration = step.durationMs as number | undefined;
-
-          // Update node state
-          setNodes((nds) =>
-            nds.map((n) =>
-              n.id === nodeId
-                ? {
-                    ...n,
-                    data: {
-                      ...(n.data as unknown as NodeData),
-                      executionState: status as "PENDING" | "RUNNING" | "SUCCESS" | "FAILED",
-                      executionDurationMs: duration,
-                      executionError: step.errorMessage || undefined,
-                    },
-                  }
-                : n
-            )
-          );
-
-          // Update edge state
-          setEdges((eds) =>
-            eds.map((edge) =>
-              edge.target === nodeId
-                ? {
-                    ...edge,
-                    data: {
-                      ...edge.data,
-                      executionState: status as "PENDING" | "RUNNING" | "SUCCESS" | "FAILED",
-                      isAnimatedFlow: status === "RUNNING",
-                    },
-                  }
-                : edge
-            )
-          );
-        } catch {
-          // Ignore parse errors on malformed chunks
-        }
-      });
-
-      eventSource.addEventListener("completed", (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          if (data.status === "SUCCESS") {
-            toast.success("Distributed execution completed via worker!", {
-              description: `Execution ID: ${result.executionId}`,
-            });
-          } else {
-            toast.error("Distributed execution completed with errors.", {
-              description: `Execution ID: ${result.executionId}`,
-            });
-          }
-        } finally {
-          eventSource.close();
-          setIsExecuting(false);
-        }
-      });
-
-      eventSource.onerror = () => {
-        eventSource.close();
-        setIsExecuting(false);
-      };
+      const queuedMsg = tToast("queued", { mode: result.mode || "distributed" });
+      toast.success(queuedMsg);
+      log("info", queuedMsg);
+      streamExecution(result.executionId, { ok: tToast("streamDone"), fail: tToast("streamFailed") });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Dispatch failed";
+      const msg = err instanceof Error ? err.message : tToast("dispatchFailed");
       toast.error(msg);
+      log("error", msg);
       setIsExecuting(false);
     }
-  }, [
-    dagValidation,
-    nodes,
-    handleResetExecution,
-    handleSave,
-    workflowId,
-    setNodes,
-    setEdges,
-    t,
-    tValidation,
-  ]);
+  }, [dagValidation, handleResetExecution, handleSave, log, nodes, streamExecution, t, tToast, tValidation, workflowId]);
 
-  // Stream live execution initiated via Webhook Simulator or external API
   const handleStreamExecutionById = useCallback(
     (execId: string) => {
       setIsExecuting(true);
+      setRunPanelOpen(true);
       handleResetExecution();
-      toast.info(`Connecting to live SSE telemetry stream for ${execId}...`);
-
-      const streamUrl = `/api/workflows/${workflowId}/executions/${execId}/stream`;
-      const eventSource = new EventSource(streamUrl);
-
-      eventSource.addEventListener("step_recorded", (e) => {
-        try {
-          const step = JSON.parse(e.data);
-          const nodeId = step.nodeId as string;
-          const status = step.status as string;
-          const duration = step.durationMs as number | undefined;
-
-          setNodes((nds) =>
-            nds.map((n) =>
-              n.id === nodeId
-                ? {
-                    ...n,
-                    data: {
-                      ...(n.data as unknown as NodeData),
-                      executionState: status as "PENDING" | "RUNNING" | "SUCCESS" | "FAILED",
-                      executionDurationMs: duration,
-                      executionError: step.errorMessage || undefined,
-                    },
-                  }
-                : n
-            )
-          );
-
-          setEdges((eds) =>
-            eds.map((edge) =>
-              edge.target === nodeId
-                ? {
-                    ...edge,
-                    data: {
-                      ...edge.data,
-                      executionState: status as "PENDING" | "RUNNING" | "SUCCESS" | "FAILED",
-                      isAnimatedFlow: status === "RUNNING",
-                    },
-                  }
-                : edge
-            )
-          );
-        } catch {
-          // ignore
-        }
-      });
-
-      eventSource.addEventListener("completed", (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          if (data.status === "SUCCESS") {
-            toast.success("Live webhook execution finished successfully!", {
-              description: `Execution ID: ${execId}`,
-            });
-          } else {
-            toast.error("Execution finished with errors.", {
-              description: `Execution ID: ${execId}`,
-            });
-          }
-        } finally {
-          eventSource.close();
-          setIsExecuting(false);
-        }
-      });
-
-      eventSource.onerror = () => {
-        eventSource.close();
-        setIsExecuting(false);
-      };
+      const msg = tToast("streamConnecting", { id: execId });
+      toast.info(msg);
+      log("info", msg);
+      streamExecution(execId, { ok: tToast("streamDone"), fail: tToast("streamFailed") });
     },
-    [handleResetExecution, setEdges, setNodes, workflowId]
+    [handleResetExecution, log, streamExecution, tToast]
   );
 
-  // Canvas Keyboard Shortcuts (Ctrl+S for save, Ctrl+Enter for run test, Escape to close inspector)
+  // ---- Node toolbar actions --------------------------------------------------------
+  const handleNodeAction = useCallback(
+    (nodeId: string, action: NodeAction) => {
+      if (action === "delete") handleDeleteNode(nodeId);
+      else if (action === "duplicate") handleDuplicate(nodeId);
+      else {
+        setSelectedNodeId(nodeId);
+        setInspectorTab("test");
+      }
+    },
+    [handleDeleteNode, handleDuplicate]
+  );
+
+  const handleBack = useCallback(() => {
+    if (isDirty) setLeaveOpen(true);
+    else router.push("/");
+  }, [isDirty, router]);
+
+  // ---- Keyboard shortcuts ------------------------------------------------------------
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      const mod = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+
+      // Preserved: Ctrl/⌘+S save, Ctrl/⌘+Enter test run (work everywhere).
+      if (mod && key === "s") {
         e.preventDefault();
         handleSave();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        return;
+      }
+      if (mod && e.key === "Enter") {
         e.preventDefault();
         handleExecuteTest();
+        return;
+      }
+
+      const dialogOpen = Boolean(document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]'));
+      if (dialogOpen || isTypingTarget(e.target)) return;
+
+      if (mod && key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        history.undo();
+      } else if ((mod && key === "z" && e.shiftKey) || (mod && key === "y")) {
+        e.preventDefault();
+        history.redo();
+      } else if (mod && key === "d") {
+        if (selectedNodeId) {
+          e.preventDefault();
+          handleDuplicate(selectedNodeId);
+        }
       } else if (e.key === "Escape") {
-        setSelectedNodeId(null);
+        if (picker) setPicker(null);
+        else setSelectedNodeId(null);
+      } else if (!mod && !e.altKey) {
+        if (key === "a") {
+          e.preventDefault();
+          openPicker({ kind: "add" });
+        } else if (key === "f") {
+          e.preventDefault();
+          rf.fitView({ ...FIT_OPTIONS, duration: 400 });
+        } else if (e.key === "?") {
+          e.preventDefault();
+          setShortcutsOpen(true);
+        }
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleSave, handleExecuteTest]);
+  }, [handleSave, handleExecuteTest, history, handleDuplicate, selectedNodeId, picker, openPicker, rf]);
 
   const selectedNode = useMemo(() => {
     if (!selectedNodeId) return null;
@@ -931,127 +971,255 @@ function WorkflowCanvasInner({
     return found ? (found as unknown as DAGNode) : null;
   }, [nodes, selectedNodeId]);
 
-  return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-zinc-950 text-zinc-100">
-      {/* Top Navigation */}
-      <WorkflowNavbar
-        workflowId={workflowId}
-        workflowName={workflowName}
-        workflowStatus={workflowStatus}
-        isSaving={isSaving}
-        isPublishing={isPublishing}
-        isExecuting={isExecuting}
-        hasCycleError={dagValidation.hasCycle}
-        session={session}
-        onNameChange={setWorkflowName}
-        onSave={handleSave}
-        onPublish={handlePublish}
-        onExecuteTest={handleExecuteTest}
-        onDispatchQueue={handleDispatchLiveQueue}
-        onResetExecution={handleResetExecution}
-        onOpenHistory={() => setIsHistoryModalOpen(true)}
-        onOpenWebhookConsole={() => setIsWebhookModalOpen(true)}
-        onAutoLayout={handleAutoLayout}
-        onExportJSON={handleExportJSON}
-        onImportJSON={handleImportJSON}
-        onSelectTemplate={handleSelectTemplate}
-      />
+  const uiContext = useMemo(
+    () => ({
+      cycleNodeIds,
+      hoveredEdgeId,
+      readOnly: false,
+      onNodeAction: handleNodeAction,
+      onEdgeInsert: (edgeId: string, screen: { x: number; y: number }) => openPicker({ kind: "insert", edgeId }, screen),
+      onEdgeDelete: handleEdgeDelete,
+    }),
+    [cycleNodeIds, hoveredEdgeId, handleNodeAction, openPicker, handleEdgeDelete]
+  );
 
-      {/* Main Workspace Layout */}
-      <div className="flex flex-1 relative overflow-hidden">
-        {/* Left Drag/Drop Palette */}
-        <NodePalette
-          onAddNode={(type) => handleAddNode(type)}
-          isOpenMobile={isMobilePaletteOpen}
-          onCloseMobile={() => setIsMobilePaletteOpen(false)}
-          isCollapsed={isPaletteCollapsed}
-          onToggleCollapse={() => setIsPaletteCollapsed((c) => !c)}
+  const closeInspector = useCallback(() => {
+    setSelectedNodeId(null);
+    setNodes((nds) => (nds.some((n) => n.selected) ? nds.map((n) => (n.selected ? { ...n, selected: false } : n)) : nds));
+  }, [setNodes]);
+
+  return (
+    <CanvasUIProvider value={uiContext}>
+      <div className="flex h-dvh w-full flex-col overflow-hidden bg-app text-fg">
+        <WorkflowNavbar
+          workflowName={workflowName}
+          workflowStatus={workflowStatus}
+          saveState={saveState}
+          isSaving={isSaving}
+          isPublishing={isPublishing}
+          isExecuting={isExecuting}
+          hasCycleError={dagValidation.hasCycle}
+          session={session}
+          modKey={modKey}
+          onBack={handleBack}
+          onNameChange={setWorkflowName}
+          onSave={handleSave}
+          onPublish={handlePublish}
+          onExecuteTest={handleExecuteTest}
+          onDispatchQueue={handleDispatchLiveQueue}
+          onResetExecution={handleResetExecution}
+          onOpenHistory={() => setIsHistoryModalOpen(true)}
+          onOpenWebhookConsole={() => setIsWebhookModalOpen(true)}
+          onAutoLayout={handleAutoLayout}
+          onExportJSON={handleExportJSON}
+          onImportJSON={handleImportJSON}
+          onSelectTemplate={handleSelectTemplate}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
         />
 
-        {/* Central Infinite Canvas */}
-        <div
-          ref={reactFlowWrapper}
-          className="flex-1 h-full w-full relative bg-zinc-950"
-          onDragOver={onDragOver}
-          onDrop={onDrop}
-        >
-          {/* Mobile Floating Action Button to Add Steps */}
-          <div className="md:hidden absolute top-3 left-3 z-20">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setIsMobilePaletteOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-semibold gap-1.5 shadow-xl text-xs h-8 px-2.5"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Add Step</span>
-            </Button>
-          </div>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onNodeClick={onNodeClick}
-            onPaneClick={onPaneClick}
-            onInit={setReactFlowInstance}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            fitView
-            proOptions={{ hideAttribution: true }}
-            snapToGrid
-            snapGrid={[16, 16]}
-            defaultEdgeOptions={{
-              type: "workflowEdge",
-            }}
-          >
-            <Background
-              variant={BackgroundVariant.Dots}
-              gap={24}
-              size={1.5}
-              color="#27272a"
-            />
-            <Controls className="!bottom-4 !left-4" showInteractive={false} />
-            <MiniMap
-              className="!bottom-4 !right-4 !hidden md:!block"
-              nodeStrokeColor="#3f3f46"
-              nodeColor="#18181b"
-              maskColor="rgba(9, 9, 11, 0.75)"
-            />
-          </ReactFlow>
+        <div className="relative flex min-h-0 flex-1">
+          <NodePalette
+            onAddNode={(type) => handleAddNode(type)}
+            isCollapsed={isPaletteCollapsed}
+            onToggleCollapse={() =>
+              setIsPaletteCollapsed((c) => {
+                writePref("nf-palette-collapsed", c ? "0" : "1");
+                return !c;
+              })
+            }
+          />
 
-          {/* Mobile Screen Guidance */}
-          <MobileWarningBanner />
+          <div className="relative flex min-w-0 flex-1 flex-col">
+            <div
+              ref={reactFlowWrapper}
+              className="relative min-h-0 flex-1"
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              onDoubleClick={(e) => {
+                if ((e.target as HTMLElement).classList.contains("react-flow__pane")) {
+                  openPicker({ kind: "add", flowPos: rf.screenToFlowPosition({ x: e.clientX, y: e.clientY }) }, { x: e.clientX, y: e.clientY });
+                }
+              }}
+            >
+              <EdgeMarkers />
+              <ReactFlow
+                className="nf-flow"
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onConnectEnd={onConnectEnd}
+                onBeforeDelete={async () => {
+                  takeSnapshot();
+                  return true;
+                }}
+                onNodeDragStart={() => takeSnapshot()}
+                onNodeClick={(_, node) => {
+                  if (node.id !== selectedNodeId) setInspectorTab("configure");
+                  setSelectedNodeId(node.id);
+                }}
+                onPaneClick={() => setSelectedNodeId(null)}
+                onEdgeMouseEnter={(_, edge) => setHoveredEdgeId(edge.id)}
+                onEdgeMouseLeave={() => setHoveredEdgeId(null)}
+                nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                fitView
+                fitViewOptions={FIT_OPTIONS}
+                minZoom={0.2}
+                maxZoom={2}
+                zoomOnDoubleClick={false}
+                deleteKeyCode={["Backspace", "Delete"]}
+                proOptions={{ hideAttribution: true }}
+                snapToGrid
+                snapGrid={[16, 16]}
+                defaultEdgeOptions={{ type: "workflowEdge" }}
+              >
+                <Background variant={BackgroundVariant.Dots} gap={20} size={1.4} />
+                {isDesktop && (
+                  <MiniMap
+                    position="bottom-right"
+                    className="!hidden lg:!block"
+                    pannable
+                    zoomable
+                    nodeBorderRadius={6}
+                    nodeColor={(n) => NODE_META[asNodeType((n.data as unknown as NodeData)?.type)].color}
+                    ariaLabel="Minimap"
+                  />
+                )}
+              </ReactFlow>
+
+              {nodes.length === 0 && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+                  <div className="pointer-events-auto w-full max-w-sm rounded-2xl border border-line bg-overlay/95 p-6 text-center shadow-elev-3 backdrop-blur animate-in fade-in-0 zoom-in-95 duration-300">
+                    <h2 className="text-base font-semibold text-fg">{t("empty.title")}</h2>
+                    <p className="mt-1.5 text-[13px] leading-5 text-fg-muted">{t("empty.body")}</p>
+                    <div className="mt-5 grid grid-cols-2 gap-2">
+                      <Button variant="secondary" onClick={() => handleAddNode("trigger")}>
+                        <Play className="text-node-trigger" aria-hidden /> {tNodes("trigger.short")}
+                      </Button>
+                      <Button variant="secondary" onClick={() => handleAddNode("webhook")}>
+                        <Webhook className="text-node-webhook" aria-hidden /> {tNodes("webhook.short")}
+                      </Button>
+                    </div>
+                    <div className="mt-4 border-t border-line pt-4">
+                      <p className="mb-2 flex items-center justify-center gap-1.5 text-xs text-fg-subtle">
+                        <Layers className="size-3.5" aria-hidden /> {t("empty.browse")}
+                      </p>
+                      <div className="space-y-1.5">
+                        {WORKFLOW_TEMPLATES.map((tpl) => (
+                          <button
+                            key={tpl.id}
+                            type="button"
+                            onClick={() => handleSelectTemplate(tpl.id)}
+                            className="w-full truncate rounded-lg border border-line bg-surface px-3 py-2 text-left text-[13px] text-fg transition-colors hover:border-line-strong hover:bg-surface-2"
+                          >
+                            {tpl.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <MobileTip />
+
+              <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-3 sm:bottom-4">
+                <CanvasToolbar
+                  onAddStep={() => openPicker({ kind: "add" })}
+                  onUndo={history.undo}
+                  onRedo={history.redo}
+                  canUndo={history.canUndo}
+                  canRedo={history.canRedo}
+                  onAutoLayout={handleAutoLayout}
+                  runPanelOpen={runPanelOpen}
+                  onToggleRunPanel={() => setRunPanelOpen((o) => !o)}
+                  modKey={modKey}
+                />
+              </div>
+            </div>
+
+            <RunPanel
+              open={runPanelOpen}
+              onOpenChange={setRunPanelOpen}
+              nodes={nodes as unknown as DAGNode[]}
+              edges={edges as unknown as DAGEdge[]}
+              logs={logs}
+              onClearLogs={() => setLogs([])}
+              isExecuting={isExecuting}
+            />
+          </div>
+
+          <NodeInspector
+            selectedNode={selectedNode}
+            allNodes={nodes as unknown as DAGNode[]}
+            allEdges={edges as unknown as DAGEdge[]}
+            credentialNames={credentialNames}
+            tab={inspectorTab}
+            onTabChange={setInspectorTab}
+            onUpdateNode={handleUpdateNode}
+            onDeleteNode={handleDeleteNode}
+            onClose={closeInspector}
+            width={inspectorWidth}
+            onWidthChange={(w) => {
+              setInspectorWidth(w);
+              writePref("nf-inspector-width", String(w));
+            }}
+          />
         </div>
 
-        {/* Slide-over Inspector Sheet / Drawer */}
-        <NodeInspector
-          selectedNode={selectedNode}
-          allNodes={nodes as unknown as DAGNode[]}
-          onUpdateNode={handleUpdateNode}
-          onDeleteNode={handleDeleteNode}
-          onClose={() => setSelectedNodeId(null)}
+        <NodePicker
+          open={picker !== null}
+          at={picker?.at ?? null}
+          allowed={pickerAllowed}
+          onSelect={handlePick}
+          onClose={() => setPicker(null)}
+        />
+
+        <ExecutionHistoryModal
+          workflowId={workflowId}
+          isOpen={isHistoryModalOpen}
+          onClose={() => setIsHistoryModalOpen(false)}
+          onReplayExecution={handleReplayExecution}
+        />
+
+        <WebhookConsoleModal
+          workflowId={workflowId}
+          nodes={nodes as unknown as DAGNode[]}
+          isOpen={isWebhookModalOpen}
+          onClose={() => setIsWebhookModalOpen(false)}
+          onStreamExecution={handleStreamExecutionById}
+        />
+
+        <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} modKey={modKey} />
+
+        <ConfirmDialog
+          open={pendingReplace !== null}
+          onOpenChange={(o) => !o && setPendingReplace(null)}
+          title={pendingReplace?.kind === "import" ? t("confirm.importTitle") : t("confirm.templateTitle")}
+          description={pendingReplace?.kind === "import" ? t("confirm.importBody") : t("confirm.templateBody")}
+          confirmLabel={pendingReplace?.kind === "import" ? t("confirm.importConfirm") : t("confirm.templateConfirm")}
+          onConfirm={() => {
+            if (pendingReplace) applyReplace(pendingReplace);
+            setPendingReplace(null);
+          }}
+        />
+
+        <ConfirmDialog
+          open={leaveOpen}
+          onOpenChange={setLeaveOpen}
+          tone="danger"
+          title={t("confirm.leaveTitle")}
+          description={t("confirm.leaveBody")}
+          confirmLabel={t("confirm.leaveConfirm")}
+          onConfirm={() => {
+            setSavedSignature(signature);
+            router.push("/");
+          }}
         />
       </div>
-
-      {/* Execution Telemetry History Modal */}
-      <ExecutionHistoryModal
-        workflowId={workflowId}
-        isOpen={isHistoryModalOpen}
-        onClose={() => setIsHistoryModalOpen(false)}
-        onReplayExecution={handleReplayExecution}
-      />
-
-      {/* Inbound Webhook Simulator Console Modal */}
-      <WebhookConsoleModal
-        workflowId={workflowId}
-        nodes={nodes as unknown as DAGNode[]}
-        isOpen={isWebhookModalOpen}
-        onClose={() => setIsWebhookModalOpen(false)}
-        onStreamExecution={handleStreamExecutionById}
-      />
-    </div>
+    </CanvasUIProvider>
   );
 }
 

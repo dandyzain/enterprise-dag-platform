@@ -1,41 +1,56 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Monitor, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AnimatePresence, motion } from "motion/react";
+import { Lightbulb, X } from "lucide-react";
 
-export function MobileWarningBanner() {
-  const t = useTranslations("workflow.canvas");
-  const [dismissed, setDismissed] = useState(false);
+const KEY = "nf-canvas-mobile-tip";
 
-  if (dismissed) return null;
+/** One-time, dismissible tip on phones (replaces the old "desktop recommended" nag). */
+export function MobileTip() {
+  const t = useTranslations("editor.tip");
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    try {
+      setVisible(window.localStorage.getItem(KEY) !== "1");
+    } catch {
+      setVisible(true);
+    }
+  }, []);
+
+  function dismiss() {
+    setVisible(false);
+    try {
+      window.localStorage.setItem(KEY, "1");
+    } catch {
+      // per-viewer convenience only
+    }
+  }
 
   return (
-    <div className="md:hidden fixed bottom-4 left-4 right-4 z-20 rounded-xl border border-amber-500/30 bg-zinc-950/95 p-3.5 shadow-2xl backdrop-blur-md">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-2.5">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-950/20 text-amber-400">
-            <Monitor className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-zinc-100">
-              Desktop View Recommended
-            </div>
-            <p className="mt-0.5 text-[11px] text-zinc-400 leading-relaxed">
-              {t("mobileNotice")}
-            </p>
-          </div>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setDismissed(true)}
-          className="h-6 w-6 text-zinc-400 hover:text-zinc-100 -mr-1 -mt-1"
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          className="absolute inset-x-3 top-3 z-10 flex items-start gap-2.5 rounded-xl border border-line bg-overlay/95 p-3 shadow-elev-2 backdrop-blur md:hidden"
+          role="note"
         >
-          <X className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-    </div>
+          <Lightbulb className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+          <p className="flex-1 text-[13px] leading-5 text-fg-muted">{t("mobile")}</p>
+          <button
+            type="button"
+            onClick={dismiss}
+            aria-label={t("dismiss")}
+            className="-m-1 inline-flex size-9 shrink-0 items-center justify-center rounded-md text-fg-subtle hover:bg-surface-3 hover:text-fg"
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

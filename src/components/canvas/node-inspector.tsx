@@ -2,91 +2,185 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import {
-  X,
-  Trash2,
-  Code,
-  Variable,
-  Sparkles,
-  Check,
-  Play,
-  Terminal,
-  Send,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  Copy,
-} from "lucide-react";
+import { Braces, CheckCircle2, FlaskConical, Send, Settings2, Trash2, X, XCircle } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DAGNode, NodeData, WorkflowNodeType } from "@/lib/dag/types";
-import {
-  testSingleStepAction,
-  StepTestResult,
-} from "@/lib/actions/step-tester-actions";
-import { toast } from "sonner";
+import { Field } from "@/components/ui/field";
+import { Segmented } from "@/components/ui/segmented";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip } from "@/components/ui/tooltip";
+import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
+import { CopyButton, CopyIcon, useCopy } from "@/components/patterns/copy-button";
+import { JsonView } from "@/components/patterns/json-view";
+import { StatusIcon } from "@/components/patterns/status-badge";
+import { useMediaQuery, BREAKPOINTS } from "@/hooks/use-media-query";
+import type { DAGEdge, DAGNode, NodeData } from "@/lib/dag/types";
+import { testSingleStepAction, type StepTestResult } from "@/lib/actions/step-tester-actions";
+import { getAncestorIds, objectKeyPaths } from "@/lib/ui/graph";
+import { cn, formatDuration } from "@/lib/utils";
+import { CodeField, type VariableSuggestion } from "./code-field";
+import { NODE_META, asNodeType } from "./node-meta";
+
+export type InspectorTab = "configure" | "test" | "variables";
 
 interface NodeInspectorProps {
   selectedNode: DAGNode | null;
   allNodes: DAGNode[];
+  allEdges: DAGEdge[];
+  credentialNames: string[];
+  tab: InspectorTab;
+  onTabChange: (tab: InspectorTab) => void;
   onUpdateNode: (nodeId: string, updatedData: Partial<NodeData>) => void;
   onDeleteNode: (nodeId: string) => void;
   onClose: () => void;
+  width: number;
+  onWidthChange: (width: number) => void;
 }
 
-export function NodeInspector({
+const MIN_W = 320;
+const MAX_W = 580;
+
+export function NodeInspector(props: NodeInspectorProps) {
+  const { selectedNode, onClose, width, onWidthChange } = props;
+  const t = useTranslations("editor.inspector");
+  const isDesktop = useMediaQuery(BREAKPOINTS.md, true);
+
+  if (!selectedNode) return null;
+
+  if (!isDesktop) {
+    return (
+      <Drawer open onOpenChange={(o) => !o && onClose()}>
+        <DrawerContent className="h-[86dvh]">
+          <DrawerTitle className="sr-only">{t("title")}</DrawerTitle>
+          <InspectorBody key={selectedNode.id} {...props} selectedNode={selectedNode} />
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  return (
+    <aside
+      aria-label={t("title")}
+      className="absolute inset-y-0 right-0 z-20 flex border-l border-line bg-overlay shadow-elev-3 animate-in fade-in-0 slide-in-from-right-4 duration-200 lg:static lg:shadow-none"
+      style={{ width }}
+    >
+      <ResizeHandle width={width} onWidthChange={onWidthChange} label={t("resize")} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <InspectorBody key={selectedNode.id} {...props} selectedNode={selectedNode} />
+      </div>
+    </aside>
+  );
+}
+
+function ResizeHandle({ width, onWidthChange, label }: { width: number; onWidthChange: (w: number) => void; label: string }) {
+  const start = React.useRef<{ x: number; w: number } | null>(null);
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={label}
+      aria-valuemin={MIN_W}
+      aria-valuemax={MAX_W}
+      aria-valuenow={width}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowLeft") onWidthChange(Math.min(MAX_W, width + 24));
+        if (e.key === "ArrowRight") onWidthChange(Math.max(MIN_W, width - 24));
+      }}
+      onPointerDown={(e) => {
+        start.current = { x: e.clientX, w: width };
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        if (!start.current) return;
+        const next = start.current.w + (start.current.x - e.clientX);
+        onWidthChange(Math.max(MIN_W, Math.min(MAX_W, next)));
+      }}
+      onPointerUp={() => {
+        start.current = null;
+      }}
+      className="group absolute inset-y-0 -left-1.5 z-10 hidden w-3 cursor-col-resize outline-none lg:block"
+    >
+      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-hover:bg-accent group-focus-visible:bg-accent" />
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h3 className="text-xs font-medium text-fg-subtle">{children}</h3>;
+}
+
+function InspectorBody({
   selectedNode,
   allNodes,
+  allEdges,
+  credentialNames,
+  tab,
+  onTabChange,
   onUpdateNode,
   onDeleteNode,
   onClose,
-}: NodeInspectorProps) {
-  const t = useTranslations("workflow.inspector");
+}: NodeInspectorProps & { selectedNode: DAGNode }) {
+  const t = useTranslations("editor.inspector");
   const tNodes = useTranslations("nodes");
-  const [copiedVar, setCopiedVar] = React.useState<string | null>(null);
+  const tStatus = useTranslations("status");
+  const tWebhook = useTranslations("webhookConsole");
   const [isTesting, setIsTesting] = React.useState(false);
   const [testResult, setTestResult] = React.useState<StepTestResult | null>(null);
   const [isSendingWebhook, setIsSendingWebhook] = React.useState(false);
-
-  if (!selectedNode) {
-    return null;
-  }
+  const fid = React.useId();
 
   const { id } = selectedNode;
   const data = selectedNode.data;
-  const nodeType = (data.type || "action") as WorkflowNodeType;
+  const nodeType = asNodeType(data.type);
+  const meta = NODE_META[nodeType];
+  const Icon = meta.icon;
   const config = data.config || {};
 
   function handleConfigChange(key: string, value: unknown) {
-    onUpdateNode(id, {
-      config: {
-        ...config,
-        [key]: value,
-      },
-    });
+    onUpdateNode(id, { config: { ...config, [key]: value } });
   }
 
-  function copyVariable(varString: string) {
-    navigator.clipboard.writeText(varString);
-    setCopiedVar(varString);
-    toast.success(`Copied ${varString}`);
-    setTimeout(() => setCopiedVar(null), 2000);
-  }
+  // ---- Variable references (real graph data) ----------------------------
+  const ancestors = React.useMemo(() => getAncestorIds(id, allEdges), [id, allEdges]);
+  const triggerRefs = React.useMemo(() => {
+    const keys = new Set<string>();
+    for (const n of allNodes) {
+      if (n.data.type === "trigger") objectKeyPaths(n.data.config?.payload).forEach((k) => keys.add(k));
+    }
+    const refs = Array.from(keys).map((k) => `{{trigger.body.${k}}}`);
+    return refs.length ? refs : ["{{trigger.body.id}}"];
+  }, [allNodes]);
+  const upstream = React.useMemo(
+    () => allNodes.filter((n) => ancestors.includes(n.id)).map((n) => ({ ref: `{{steps.${n.id}.output.data}}`, label: n.data.label || n.id })),
+    [allNodes, ancestors]
+  );
+  const vaultRefs = credentialNames.map((name) => `{{credentials.${name}}}`);
 
+  const suggestions: VariableSuggestion[] = React.useMemo(
+    () => [
+      ...triggerRefs.map((label) => ({ label, detail: t("triggerVars") })),
+      ...upstream.map((u) => ({ label: u.ref, detail: u.label })),
+      ...vaultRefs.map((label) => ({ label, detail: t("vaultVars") })),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [triggerRefs, upstream, credentialNames]
+  );
+
+  // ---- Sandbox (unchanged behaviour) -----------------------------------
   async function handleRunStepTest() {
     setIsTesting(true);
     try {
       const res = await testSingleStepAction(nodeType, config);
       setTestResult(res);
-      if (res.success) {
-        toast.success(`Step test completed (${res.durationMs}ms)`);
-      } else {
-        toast.error(res.error || "Step test failed");
-      }
+      if (res.success) toast.success(t("stepTestDone", { ms: res.durationMs }));
+      else toast.error(res.error || t("stepTestFailed"));
     } catch {
-      toast.error("Execution error during step test.");
+      toast.error(t("stepTestFailed"));
     } finally {
       setIsTesting(false);
     }
@@ -106,466 +200,375 @@ export function NodeInspector({
           timestamp: Date.now(),
         }),
       });
-      const json = await res.json();
+      const body = await res.json();
       if (res.status === 202) {
-        toast.success("Webhook event accepted (HTTP 202)!", {
-          description: `Execution queued with ID: ${json.executionId}`,
-        });
-        setTestResult({
-          success: true,
-          statusCode: 202,
-          durationMs: 4,
-          data: json,
-        });
+        toast.success(t("webhookAccepted"), { description: body.executionId });
+        setTestResult({ success: true, statusCode: 202, durationMs: 4, data: body });
       } else {
-        toast.error(`Webhook returned HTTP ${res.status}`);
-        setTestResult({
-          success: false,
-          statusCode: res.status,
-          durationMs: 4,
-          error: json.error || "Webhook test failed",
-        });
+        toast.error(t("webhookReturned", { status: res.status }));
+        setTestResult({ success: false, statusCode: res.status, durationMs: 4, error: body.error || t("stepTestFailed") });
       }
     } catch {
-      toast.error("Failed to connect to webhook route.");
+      toast.error(t("webhookUnreachable"));
     } finally {
       setIsSendingWebhook(false);
     }
   }
 
-  // Generate available upstream variables based on other nodes
-  const upstreamNodes = allNodes.filter((n) => n.id !== id);
+  const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
+  const webhookUrl = typeof window !== "undefined" ? `${window.location.origin}/api/workflows/wh/${String(config.path || "")}` : "";
 
   return (
-    <>
-      {/* Mobile Backdrop Tap to Dismiss */}
-      <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-xs z-30 md:hidden animate-in fade-in duration-200"
-        onClick={onClose}
-      />
-
-      <div className="fixed inset-x-0 bottom-0 z-40 max-h-[84vh] h-[84vh] rounded-t-2xl border-t border-zinc-800 bg-zinc-950/98 shadow-2xl flex flex-col backdrop-blur-md transition-all duration-300 md:inset-y-0 md:left-auto md:right-0 md:top-0 md:h-full md:max-h-none md:w-[380px] lg:w-[420px] md:rounded-none md:border-l md:border-t-0 animate-in slide-in-from-bottom-6 md:slide-in-from-right-6">
-        {/* Mobile Grab Handle */}
-        <div
-          className="flex justify-center pt-2.5 pb-1 md:hidden cursor-pointer"
-          onClick={onClose}
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Header */}
+      <div className="flex items-start gap-3 border-b border-line px-4 py-3.5">
+        <span
+          className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg"
+          style={{ background: `color-mix(in oklab, ${meta.color} 14%, transparent)`, color: meta.color }}
         >
-          <div className="h-1.5 w-12 rounded-full bg-zinc-700/80 hover:bg-zinc-600 transition-colors" />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-zinc-100 uppercase tracking-wider">
-              {t("title")}
-            </span>
-            <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800">
-              {id}
+          <Icon className="size-4" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-sm font-semibold text-fg">{data.label || tNodes(`${nodeType}.short`)}</h2>
+          <div className="mt-1 flex min-w-0 items-center gap-1.5">
+            <Badge variant={meta.badge}>{tNodes(`${nodeType}.short`)}</Badge>
+            <span className="inline-flex min-w-0 items-center gap-0.5 rounded-md bg-surface-2 py-0.5 pl-1.5 pr-0.5 font-mono text-2xs text-fg-subtle">
+              <span className="truncate">{id}</span>
+              <CopyButton value={id} className="size-5" />
             </span>
           </div>
-          <p className="text-[11px] text-zinc-400 mt-0.5">{t("subtitle")}</p>
         </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onDeleteNode(id)}
-            className="text-zinc-400 hover:text-rose-400 hover:bg-rose-950/20"
-            title={t("deleteNode")}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-100"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <Tooltip content={t("deleteStep")}>
+            <Button variant="danger-ghost" size="icon-sm" onClick={() => onDeleteNode(id)} aria-label={t("deleteStep")}>
+              <Trash2 aria-hidden />
+            </Button>
+          </Tooltip>
+          <Tooltip content={t("close")} shortcut="Esc">
+            <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={t("close")}>
+              <X aria-hidden />
+            </Button>
+          </Tooltip>
         </div>
       </div>
 
-      {/* Body Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Label & Description */}
-        <div className="space-y-3">
-          <div>
-            <label className="text-[11px] font-medium text-zinc-300 block mb-1">
-              {t("label")}
-            </label>
-            <Input
-              value={data.label || ""}
-              onChange={(e) => onUpdateNode(id, { label: e.target.value })}
-              placeholder="e.g. Fetch Customer Records"
-            />
-          </div>
+      <Tabs value={tab} onValueChange={(v) => onTabChange(v as InspectorTab)} className="flex min-h-0 flex-1 flex-col">
+        <TabsList className="px-2">
+          <TabsTrigger value="configure">
+            <Settings2 aria-hidden /> {t("tabs.configure")}
+          </TabsTrigger>
+          <TabsTrigger value="test">
+            <FlaskConical aria-hidden /> {t("tabs.test")}
+            {data.executionState && <StatusIcon status={data.executionState} className="size-3.5" />}
+          </TabsTrigger>
+          <TabsTrigger value="variables">
+            <Braces aria-hidden /> {t("tabs.variables")}
+          </TabsTrigger>
+        </TabsList>
 
-          <div>
-            <label className="text-[11px] font-medium text-zinc-300 block mb-1">
-              {t("description")}
-            </label>
-            <Input
-              value={data.description || ""}
-              onChange={(e) => onUpdateNode(id, { description: e.target.value })}
-              placeholder="Brief description of this operation"
-            />
-          </div>
-        </div>
-
-        {/* Node Type Specific Configurations */}
-        <div className="pt-2 border-t border-zinc-800/80 space-y-3">
-          <div className="text-[11px] font-semibold text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
-            <Code className="h-3.5 w-3.5 text-emerald-400" />
-            <span>{t("configuration")}</span>
-          </div>
-
-          {/* Trigger Node Form */}
-          {nodeType === "trigger" && (
-            <div>
-              <label className="text-[11px] font-medium text-zinc-300 block mb-1">
-                {tNodes("trigger.fields.payload")}
-              </label>
-              <Textarea
-                rows={5}
-                value={
-                  typeof config.payload === "string"
-                    ? config.payload
-                    : JSON.stringify(config.payload ?? { event: "manual_test", timestamp: Date.now() }, null, 2)
-                }
-                onChange={(e) => handleConfigChange("payload", e.target.value)}
-                placeholder='{\n  "userId": "usr_123",\n  "status": "active"\n}'
-              />
-            </div>
-          )}
-
-          {/* Webhook Node Form */}
-          {nodeType === "webhook" && (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* Configure */}
+          <TabsContent value="configure" className="space-y-5 p-4">
             <div className="space-y-3">
-              <div>
-                <label className="text-[11px] font-medium text-zinc-300 block mb-1">
-                  {tNodes("webhook.fields.path")}
-                </label>
-                <div className="flex items-center">
-                  <span className="text-[11px] text-zinc-500 bg-zinc-900 border border-r-0 border-zinc-800 rounded-l-md px-2.5 py-1.5">
-                    /api/workflows/wh/
-                  </span>
-                  <Input
-                    className="rounded-l-none"
-                    value={String(config.path || "")}
-                    onChange={(e) => handleConfigChange("path", e.target.value)}
-                    placeholder={tNodes("webhook.fields.pathPlaceholder")}
+              <Field id={`${fid}-label`} label={t("label")}>
+                <Input
+                  id={`${fid}-label`}
+                  value={data.label || ""}
+                  onChange={(e) => onUpdateNode(id, { label: e.target.value })}
+                  placeholder={tNodes(`${nodeType}.defaultLabel`)}
+                />
+              </Field>
+              <Field id={`${fid}-desc`} label={t("description")}>
+                <Textarea
+                  id={`${fid}-desc`}
+                  rows={2}
+                  value={data.description || ""}
+                  onChange={(e) => onUpdateNode(id, { description: e.target.value })}
+                  className="min-h-16 resize-none"
+                />
+              </Field>
+            </div>
+
+            <div className="space-y-3 border-t border-line pt-4">
+              <SectionTitle>{t("parameters")}</SectionTitle>
+
+              {nodeType === "trigger" && (
+                <Field id={`${fid}-payload`} label={tNodes("trigger.fields.payload")}>
+                  <CodeField
+                    id={`${fid}-payload`}
+                    value={config.payload ?? { event: "manual_test", timestamp: Date.now() }}
+                    onChange={(v) => handleConfigChange("payload", v)}
+                    variables={suggestions}
+                    minHeight="140px"
+                    ariaLabel={tNodes("trigger.fields.payload")}
                   />
-                </div>
-              </div>
+                </Field>
+              )}
 
-              <div>
-                <label className="text-[11px] font-medium text-zinc-300 block mb-1">
-                  {tNodes("webhook.fields.authHeader")}
-                </label>
-                <Input
-                  value={String(config.secretHeader || "")}
-                  onChange={(e) => handleConfigChange("secretHeader", e.target.value)}
-                  placeholder="X-Webhook-Secret-Key"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Action Node Form */}
-          {nodeType === "action" && (
-            <div className="space-y-3">
-              <div>
-                <label className="text-[11px] font-medium text-zinc-300 block mb-1">
-                  {tNodes("action.fields.method")}
-                </label>
-                <select
-                  value={String(config.method || "POST")}
-                  onChange={(e) => handleConfigChange("method", e.target.value)}
-                  className="w-full h-8 rounded-md border border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                >
-                  <option value="GET">GET</option>
-                  <option value="POST">POST</option>
-                  <option value="PUT">PUT</option>
-                  <option value="PATCH">PATCH</option>
-                  <option value="DELETE">DELETE</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-medium text-zinc-300 block mb-1">
-                  {tNodes("action.fields.url")}
-                </label>
-                <Input
-                  value={String(config.url || "")}
-                  onChange={(e) => handleConfigChange("url", e.target.value)}
-                  placeholder={tNodes("action.fields.urlPlaceholder")}
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-medium text-zinc-300 block mb-1">
-                  {tNodes("action.fields.headers")}
-                </label>
-                <Textarea
-                  rows={3}
-                  value={
-                    typeof config.headers === "string"
-                      ? config.headers
-                      : JSON.stringify(config.headers ?? { "Content-Type": "application/json" }, null, 2)
-                  }
-                  onChange={(e) => handleConfigChange("headers", e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-medium text-zinc-300 block mb-1">
-                  {tNodes("action.fields.body")}
-                </label>
-                <Textarea
-                  rows={4}
-                  value={
-                    typeof config.body === "string"
-                      ? config.body
-                      : JSON.stringify(
-                          config.body ?? {
-                            id: "{{trigger.body.id}}",
-                            action: "process",
-                          },
-                          null,
-                          2
-                        )
-                  }
-                  onChange={(e) => handleConfigChange("body", e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Filter Node Form */}
-          {nodeType === "filter" && (
-            <div className="space-y-3">
-              <div>
-                <label className="text-[11px] font-medium text-zinc-300 block mb-1">
-                  {tNodes("filter.fields.field")}
-                </label>
-                <Input
-                  value={String(config.field || "")}
-                  onChange={(e) => handleConfigChange("field", e.target.value)}
-                  placeholder={tNodes("filter.fields.fieldPlaceholder")}
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-medium text-zinc-300 block mb-1">
-                  {tNodes("filter.fields.operator")}
-                </label>
-                <select
-                  value={String(config.operator || "equals")}
-                  onChange={(e) => handleConfigChange("operator", e.target.value)}
-                  className="w-full h-8 rounded-md border border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                >
-                  <option value="equals">{tNodes("filter.fields.operators.equals")}</option>
-                  <option value="notEquals">{tNodes("filter.fields.operators.notEquals")}</option>
-                  <option value="contains">{tNodes("filter.fields.operators.contains")}</option>
-                  <option value="greaterThan">{tNodes("filter.fields.operators.greaterThan")}</option>
-                  <option value="lessThan">{tNodes("filter.fields.operators.lessThan")}</option>
-                  <option value="exists">{tNodes("filter.fields.operators.exists")}</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-medium text-zinc-300 block mb-1">
-                  {tNodes("filter.fields.value")}
-                </label>
-                <Input
-                  value={String(config.value ?? "")}
-                  onChange={(e) => handleConfigChange("value", e.target.value)}
-                  placeholder="Expected value to match"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Step Isolation Runner & Webhook Simulator */}
-        <div className="pt-2 border-t border-zinc-800/80 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-200 uppercase tracking-wider">
-              <Terminal className="h-3.5 w-3.5 text-amber-400" />
-              <span>Step Execution Sandbox</span>
-            </div>
-            {testResult && (
-              <Badge
-                variant={testResult.success ? "default" : "failed"}
-                className="text-[10px] px-1.5 py-0"
-              >
-                {testResult.success ? (
-                  <CheckCircle2 className="h-3 w-3 mr-1 inline" />
-                ) : (
-                  <AlertCircle className="h-3 w-3 mr-1 inline" />
-                )}
-                {testResult.durationMs}ms
-              </Badge>
-            )}
-          </div>
-
-          <p className="text-[11px] text-zinc-400 leading-normal">
-            Execute this single node in isolation with sample payload to test logic before orchestrating the full DAG.
-          </p>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={isTesting}
-              onClick={handleRunStepTest}
-              className="flex-1 h-8 text-xs font-medium border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300"
-            >
-              {isTesting ? (
+              {nodeType === "webhook" && (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                  Testing Step...
-                </>
-              ) : (
-                <>
-                  <Play className="h-3.5 w-3.5 mr-1.5 fill-current" />
-                  Test Step Output
+                  <Field
+                    id={`${fid}-path`}
+                    label={tNodes("webhook.fields.path")}
+                    action={webhookUrl ? <CopyButton value={webhookUrl} label={tWebhook("copyUrl")} /> : null}
+                  >
+                    <div className="flex">
+                      <span className="flex shrink-0 items-center rounded-l-lg border border-r-0 border-line bg-surface-2 px-2.5 font-mono text-xs text-fg-subtle">
+                        /api/workflows/wh/
+                      </span>
+                      <Input
+                        id={`${fid}-path`}
+                        className="rounded-l-none font-mono"
+                        value={String(config.path || "")}
+                        onChange={(e) => handleConfigChange("path", e.target.value)}
+                        placeholder={tNodes("webhook.fields.pathPlaceholder")}
+                      />
+                    </div>
+                  </Field>
+                  <Field id={`${fid}-secret`} label={tNodes("webhook.fields.authHeader")}>
+                    <Input
+                      id={`${fid}-secret`}
+                      className="font-mono"
+                      value={String(config.secretHeader || "")}
+                      onChange={(e) => handleConfigChange("secretHeader", e.target.value)}
+                      placeholder="X-Webhook-Secret-Key"
+                    />
+                  </Field>
                 </>
               )}
-            </Button>
 
-            {nodeType === "webhook" && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={isSendingWebhook}
-                onClick={handleDispatchWebhookTest}
-                className="h-8 text-xs font-medium border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-300"
-                title="Send sample HTTP POST to Webhook route"
-              >
-                {isSendingWebhook ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <>
-                    <Send className="h-3.5 w-3.5 mr-1.5" />
-                    Ping Webhook
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-
-          {/* Test Result Output Display */}
-          {testResult && (
-            <div className="mt-2 rounded-md bg-zinc-900/90 border border-zinc-800 p-2.5 space-y-1.5 text-xs font-mono">
-              <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                <span className="font-semibold text-zinc-300">Sandbox Response:</span>
-                <span>Status: {testResult.statusCode ?? (testResult.success ? 200 : 500)}</span>
-              </div>
-              {testResult.error ? (
-                <div className="text-rose-400 text-[11px] break-all bg-rose-950/30 p-2 rounded border border-rose-900/50">
-                  {testResult.error}
-                </div>
-              ) : (
-                <pre className="max-h-40 overflow-y-auto text-[10.5px] text-emerald-400 bg-zinc-950/60 p-2 rounded border border-zinc-800/80 leading-tight">
-                  {JSON.stringify(testResult.data, null, 2)}
-                </pre>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Variable Interpolation Helper */}
-        <div className="pt-2 border-t border-zinc-800/80 space-y-2.5">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-200 uppercase tracking-wider">
-            <Variable className="h-3.5 w-3.5 text-violet-400" />
-            <span>{t("variables")}</span>
-          </div>
-          <p className="text-[11px] text-zinc-400 leading-normal">
-            {t("variableHint")}
-          </p>
-
-          <div className="space-y-1.5 pt-1">
-            <div
-              onClick={() => copyVariable("{{trigger.body.id}}")}
-              className="group flex items-center justify-between p-2 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 cursor-pointer text-xs"
-            >
-              <span className="font-mono text-[11px] text-violet-400">
-                {"{{trigger.body.id}}"}
-              </span>
-              {copiedVar === "{{trigger.body.id}}" ? (
-                <Check className="h-3.5 w-3.5 text-emerald-400" />
-              ) : (
-                <Sparkles className="h-3.5 w-3.5 text-zinc-500 group-hover:text-zinc-300" />
-              )}
-            </div>
-
-            {upstreamNodes.map((node) => {
-              const varKey = `{{steps.${node.id}.output.data}}`;
-              return (
-                <div
-                  key={node.id}
-                  onClick={() => copyVariable(varKey)}
-                  className="group flex items-center justify-between p-2 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 cursor-pointer text-xs"
-                >
-                  <div className="truncate mr-2">
-                    <span className="font-mono text-[11px] text-sky-400">
-                      {varKey}
-                    </span>
-                    <div className="text-[10px] text-zinc-500 truncate">
-                      From: {node.data.label || node.id}
+              {nodeType === "action" && (
+                <>
+                  <div className="space-y-1.5">
+                    <span className="text-[13px] font-medium text-fg">{tNodes("action.fields.method")}</span>
+                    <div className="scrollbar-none overflow-x-auto">
+                      <Segmented
+                        size="sm"
+                        ariaLabel={tNodes("action.fields.method")}
+                        value={String(config.method || "POST") as (typeof methods)[number]}
+                        onChange={(m) => handleConfigChange("method", m)}
+                        options={methods.map((m) => ({ value: m, label: <span className="font-mono">{m}</span>, ariaLabel: m }))}
+                      />
                     </div>
                   </div>
-                  {copiedVar === varKey ? (
-                    <Check className="h-3.5 w-3.5 text-emerald-400" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5 text-zinc-500 group-hover:text-zinc-300 shrink-0" />
+                  <Field id={`${fid}-url`} label={tNodes("action.fields.url")}>
+                    <Input
+                      id={`${fid}-url`}
+                      className="font-mono"
+                      value={String(config.url || "")}
+                      onChange={(e) => handleConfigChange("url", e.target.value)}
+                      placeholder={tNodes("action.fields.urlPlaceholder")}
+                      spellCheck={false}
+                    />
+                  </Field>
+                  <Field id={`${fid}-headers`} label={tNodes("action.fields.headers")}>
+                    <CodeField
+                      id={`${fid}-headers`}
+                      value={config.headers ?? { "Content-Type": "application/json" }}
+                      onChange={(v) => handleConfigChange("headers", v)}
+                      variables={suggestions}
+                      minHeight="72px"
+                      ariaLabel={tNodes("action.fields.headers")}
+                    />
+                  </Field>
+                  <Field id={`${fid}-body`} label={tNodes("action.fields.body")}>
+                    <CodeField
+                      id={`${fid}-body`}
+                      value={config.body ?? { id: "{{trigger.body.id}}", action: "process" }}
+                      onChange={(v) => handleConfigChange("body", v)}
+                      variables={suggestions}
+                      minHeight="110px"
+                      ariaLabel={tNodes("action.fields.body")}
+                    />
+                  </Field>
+                </>
+              )}
+
+              {nodeType === "filter" && (
+                <>
+                  <Field id={`${fid}-field`} label={tNodes("filter.fields.field")}>
+                    <Input
+                      id={`${fid}-field`}
+                      className="font-mono"
+                      value={String(config.field || "")}
+                      onChange={(e) => handleConfigChange("field", e.target.value)}
+                      placeholder={tNodes("filter.fields.fieldPlaceholder")}
+                      spellCheck={false}
+                      list={`${fid}-vars`}
+                    />
+                    <datalist id={`${fid}-vars`}>
+                      {suggestions.map((s) => (
+                        <option key={s.label} value={s.label} />
+                      ))}
+                    </datalist>
+                  </Field>
+                  <Field id={`${fid}-op`} label={tNodes("filter.fields.operator")}>
+                    <Select value={String(config.operator || "equals")} onValueChange={(v) => handleConfigChange("operator", v)}>
+                      <SelectTrigger id={`${fid}-op`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(["equals", "notEquals", "contains", "greaterThan", "lessThan", "exists"] as const).map((op) => (
+                          <SelectItem key={op} value={op}>
+                            {tNodes(`filter.fields.operators.${op}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field id={`${fid}-value`} label={tNodes("filter.fields.value")}>
+                    <Input
+                      id={`${fid}-value`}
+                      value={String(config.value ?? "")}
+                      onChange={(e) => handleConfigChange("value", e.target.value)}
+                    />
+                  </Field>
+                </>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Test */}
+          <TabsContent value="test" className="space-y-5 p-4">
+            <div className="rounded-xl border border-line bg-surface p-3.5">
+              <SectionTitle>{t("lastRun")}</SectionTitle>
+              {data.executionState ? (
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center justify-between gap-2 text-[13px]">
+                    <span className="flex items-center gap-2 font-medium text-fg">
+                      <StatusIcon status={data.executionState} />
+                      {tStatus(data.executionState)}
+                    </span>
+                    {data.executionDurationMs !== undefined && (
+                      <span className="font-mono text-xs tabular-nums text-fg-muted">{formatDuration(data.executionDurationMs)}</span>
+                    )}
+                  </div>
+                  {data.executionError && (
+                    <p className="break-all rounded-lg border border-failed/30 bg-failed/10 p-2 font-mono text-xs text-fg">
+                      {data.executionError}
+                    </p>
                   )}
                 </div>
-              );
-            })}
-
-            {/* Hardware Vault Credentials */}
-            <div className="pt-2 border-t border-zinc-800/60">
-              <div className="text-[10px] uppercase font-semibold text-zinc-400 mb-1.5 flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                <span>Vault Secrets (AES-256-GCM)</span>
-              </div>
-              <div
-                onClick={() => copyVariable("{{credentials.STRIPE_PRODUCTION_API_KEY}}")}
-                className="group flex items-center justify-between p-2 rounded-md bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 cursor-pointer text-xs mb-1"
-              >
-                <span className="font-mono text-[10px] text-emerald-400 truncate">
-                  {"{{credentials.STRIPE_PRODUCTION_API_KEY}}"}
-                </span>
-                {copiedVar === "{{credentials.STRIPE_PRODUCTION_API_KEY}}" ? (
-                  <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                ) : (
-                  <Sparkles className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                )}
-              </div>
-              <div
-                onClick={() => copyVariable("{{credentials.INTERNAL_LEDGER_AUTH_SECRET}}")}
-                className="group flex items-center justify-between p-2 rounded-md bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 cursor-pointer text-xs"
-              >
-                <span className="font-mono text-[10px] text-emerald-400 truncate">
-                  {"{{credentials.INTERNAL_LEDGER_AUTH_SECRET}}"}
-                </span>
-                {copiedVar === "{{credentials.INTERNAL_LEDGER_AUTH_SECRET}}" ? (
-                  <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                ) : (
-                  <Sparkles className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                )}
-              </div>
+              ) : (
+                <p className="mt-1.5 text-[13px] text-fg-muted">{t("noRunYet")}</p>
+              )}
             </div>
-          </div>
+
+            <div className="space-y-3">
+              <div>
+                <SectionTitle>{t("sandboxTitle")}</SectionTitle>
+                <p className="mt-1 text-[13px] leading-5 text-fg-muted">{t("sandboxHint")}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={handleRunStepTest} loading={isTesting} className="flex-1">
+                  {!isTesting && <FlaskConical aria-hidden />}
+                  {isTesting ? t("testing") : t("runTest")}
+                </Button>
+                {nodeType === "webhook" && (
+                  <Button variant="secondary" onClick={handleDispatchWebhookTest} loading={isSendingWebhook}>
+                    {!isSendingWebhook && <Send aria-hidden />} {t("pingWebhook")}
+                  </Button>
+                )}
+              </div>
+
+              {testResult && (
+                <div className="space-y-2 rounded-xl border border-line bg-surface p-3" aria-live="polite">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-fg">{t("response")}</span>
+                    <span className="flex items-center gap-2 text-fg-muted">
+                      {testResult.success ? (
+                        <CheckCircle2 className="size-3.5 text-success" aria-hidden />
+                      ) : (
+                        <XCircle className="size-3.5 text-failed" aria-hidden />
+                      )}
+                      <span className="font-mono">
+                        {t("status")} {testResult.statusCode ?? (testResult.success ? 200 : 500)}
+                      </span>
+                      <span aria-hidden>·</span>
+                      <span className="font-mono tabular-nums">{formatDuration(testResult.durationMs)}</span>
+                    </span>
+                  </div>
+                  {testResult.error ? (
+                    <p className="break-all rounded-lg border border-failed/30 bg-failed/10 p-2 font-mono text-xs text-fg">
+                      {testResult.error}
+                    </p>
+                  ) : (
+                    <JsonView value={testResult.data} maxHeight="max-h-60" />
+                  )}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Variables */}
+          <TabsContent value="variables" className="space-y-5 p-4">
+            <p className="text-[13px] leading-5 text-fg-muted">{t("variablesHint", { open: "{{" })}</p>
+            <VariableGroup title={t("triggerVars")} refs={triggerRefs.map((r) => ({ ref: r }))} tone="var(--node-trigger)" />
+            <VariableGroup
+              title={t("upstreamVars")}
+              refs={upstream.map((u) => ({ ref: u.ref, hint: t("from", { label: u.label }) }))}
+              empty={t("noUpstream")}
+              tone="var(--node-action)"
+            />
+            <VariableGroup title={t("vaultVars")} refs={vaultRefs.map((r) => ({ ref: r }))} empty={t("noVault")} tone="var(--success)" />
+          </TabsContent>
         </div>
-      </div>
-      </div>
-    </>
+      </Tabs>
+    </div>
+  );
+}
+
+function VariableGroup({
+  title,
+  refs,
+  empty,
+  tone,
+}: {
+  title: string;
+  refs: { ref: string; hint?: string }[];
+  empty?: string;
+  tone: string;
+}) {
+  return (
+    <section className="space-y-2">
+      <h3 className="flex items-center gap-2 text-xs font-medium text-fg-subtle">
+        <span className="size-1.5 rounded-full" style={{ background: tone }} aria-hidden />
+        {title}
+      </h3>
+      {refs.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-line px-3 py-2.5 text-xs text-fg-subtle">{empty}</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {refs.map((r) => (
+            <li key={r.ref}>
+              <VariableChip refText={r.ref} hint={r.hint} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function VariableChip({ refText, hint }: { refText: string; hint?: string }) {
+  const t = useTranslations("editor.inspector");
+  const { copied, copy } = useCopy();
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        if (await copy(refText)) toast.success(t("copied", { ref: refText }));
+      }}
+      className={cn(
+        "group flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-left transition-colors",
+        "hover:border-line-strong hover:bg-surface-2 pointer-coarse:py-3"
+      )}
+    >
+      <span className="min-w-0">
+        <span className="block truncate font-mono text-xs text-fg">{refText}</span>
+        {hint ? <span className="block truncate text-xs text-fg-subtle">{hint}</span> : null}
+      </span>
+      <CopyIcon copied={copied} className="size-3.5 shrink-0 text-fg-subtle group-hover:text-fg" />
+    </button>
   );
 }
