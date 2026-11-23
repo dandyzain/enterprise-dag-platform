@@ -3,66 +3,57 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter, usePathname } from "@/i18n/routing";
-import { Globe, Check } from "lucide-react";
+import { Globe } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
-export function LanguageSwitcher() {
+export function LanguageSwitcher({ className, compact = false }: { className?: string; compact?: boolean }) {
   const t = useTranslations("common");
   const currentLocale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
 
-  function handleLocaleChange(newLocale: "en" | "id") {
+  function handleLocaleChange(newLocale: string) {
     if (newLocale === currentLocale) return;
-    router.replace(pathname, { locale: newLocale });
+    router.replace(pathname, { locale: newLocale as "en" | "id" });
   }
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100"
-          aria-label={t("language")}
-        >
-          <Globe className="h-3.5 w-3.5 text-zinc-400" />
-          <span className="font-medium uppercase tracking-wider text-[11px]">
-            {currentLocale}
-          </span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44 border-zinc-800 bg-zinc-900">
-        <DropdownMenuItem
-          onClick={() => handleLocaleChange("en")}
-          className="flex items-center justify-between text-xs py-2 hover:bg-zinc-800 focus:bg-zinc-800"
-        >
-          <span className="flex items-center gap-2">
-            <span className="text-zinc-400 font-mono text-[11px]">EN</span>
-            <span>{t("english")}</span>
-          </span>
-          {currentLocale === "en" && (
-            <Check className="h-3.5 w-3.5 text-emerald-400" />
-          )}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => handleLocaleChange("id")}
-          className="flex items-center justify-between text-xs py-2 hover:bg-zinc-800 focus:bg-zinc-800"
-        >
-          <span className="flex items-center gap-2">
-            <span className="text-zinc-400 font-mono text-[11px]">ID</span>
-            <span>{t("indonesian")}</span>
-          </span>
-          {currentLocale === "id" && (
-            <Check className="h-3.5 w-3.5 text-emerald-400" />
-          )}
-        </DropdownMenuItem>
+      <Tooltip content={t("language")}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size={compact ? "icon-sm" : "sm"}
+            className={cn("text-fg-muted", !compact && "gap-1.5 px-2", className)}
+            aria-label={`${t("language")}: ${currentLocale === "id" ? t("indonesian") : t("english")}`}
+          >
+            <Globe aria-hidden />
+            {!compact && <span className="font-mono text-xs uppercase tracking-wide">{currentLocale}</span>}
+          </Button>
+        </DropdownMenuTrigger>
+      </Tooltip>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel>{t("language")}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={currentLocale} onValueChange={handleLocaleChange}>
+          <DropdownMenuRadioItem value="en" lang="en">
+            {t("english")}
+            <span className="ml-auto font-mono text-2xs text-fg-subtle">EN</span>
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="id" lang="id">
+            {t("indonesian")}
+            <span className="ml-auto font-mono text-2xs text-fg-subtle">ID</span>
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
