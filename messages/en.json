@@ -480,7 +480,7 @@
       "list": "List"
     },
     "steps": "{count, plural, one {# step} other {# steps}}",
-    "updated": "Updated {time}",
+    "updated": "Updated <time></time>",
     "lastRun": "Last run",
     "neverRun": "Never run",
     "open": "Open",
@@ -586,7 +586,7 @@
       "oauth_secret": "OAuth secret",
       "webhook_secret": "Webhook secret"
     },
-    "created": "Created {time}",
+    "created": "Created <time></time>",
     "copyReference": "Copy reference",
     "referenceCopied": "Copied {ref}",
     "delete": "Delete credential",

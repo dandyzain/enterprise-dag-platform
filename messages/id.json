@@ -480,7 +480,7 @@
       "list": "Daftar"
     },
     "steps": "{count} langkah",
-    "updated": "Diperbarui {time}",
+    "updated": "Diperbarui <time></time>",
     "lastRun": "Eksekusi terakhir",
     "neverRun": "Belum pernah dijalankan",
     "open": "Buka",
@@ -586,7 +586,7 @@
       "oauth_secret": "Rahasia OAuth",
       "webhook_secret": "Rahasia webhook"
     },
-    "created": "Dibuat {time}",
+    "created": "Dibuat <time></time>",
     "copyReference": "Salin referensi",
     "referenceCopied": "{ref} tersalin",
     "delete": "Hapus kredensial",

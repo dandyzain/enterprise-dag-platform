@@ -33,22 +33,22 @@ export function StatCard({ label, value, decimals = 0, suffix, locale, hint, ico
     <div
       onPointerMove={onPointerMove}
       className={cn(
-        "spotlight group rounded-2xl border border-line bg-surface p-4 shadow-elev-1 transition-[border-color,transform] duration-200 ease-standard",
+        "spotlight group @container rounded-2xl border border-line bg-surface p-4 shadow-elev-1 transition-[border-color,transform] duration-200 ease-standard",
         "hover:border-line-strong",
         className
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[13px] font-medium text-fg-muted">{label}</span>
+        <span className="truncate text-[13px] font-medium text-fg-muted">{label}</span>
         {Icon ? (
           <span className="flex size-7 items-center justify-center rounded-lg border border-line bg-surface-2 text-fg-subtle transition-colors group-hover:text-fg-muted">
             <Icon className="size-3.5" aria-hidden />
           </span>
         ) : null}
       </div>
-      <div className="mt-3 flex items-end justify-between gap-3">
+      <div className="mt-3 flex flex-col gap-2 @min-[250px]:flex-row @min-[250px]:items-end @min-[250px]:justify-between @min-[250px]:gap-3">
         <div className="min-w-0">
-          <div className="text-[28px] font-semibold leading-8 tracking-tight text-fg">
+          <div className="truncate text-2xl font-semibold leading-8 tracking-tight text-fg @min-[250px]:text-[28px]">
             {typeof value === "number" ? (
               <NumberTicker value={value} decimals={decimals} suffix={suffix} locale={locale} />
             ) : (
@@ -74,7 +74,7 @@ export function StatCard({ label, value, decimals = 0, suffix, locale, hint, ico
             data={trend.data}
             ariaLabel={trend.ariaLabel}
             formatPoint={trend.formatPoint}
-            className="mb-1 h-10 w-24 shrink-0 sm:w-28"
+            className="mb-1 h-9 w-full shrink-0 @min-[250px]:h-10 @min-[250px]:w-28"
           />
         ) : null}
       </div>
