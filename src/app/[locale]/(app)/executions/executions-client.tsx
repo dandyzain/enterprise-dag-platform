@@ -385,7 +385,7 @@ export function ExecutionsClient({ initialExecutions, workflowNames }: Execution
           ) : (
             <>
               {/* Desktop table */}
-              <div className="hidden overflow-x-auto md:block">
+              <div className="relative hidden overflow-x-auto md:block">
                 <table className="w-full border-collapse text-left">
                   <thead>
                     {table.getHeaderGroups().map((hg) => (

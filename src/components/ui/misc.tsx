@@ -34,7 +34,7 @@ Separator.displayName = SeparatorPrimitive.Root.displayName;
 
 /** Card surface used across pages. */
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-2xl border border-line bg-surface shadow-elev-1", className)} {...props} />;
+  return <div className={cn("relative rounded-2xl border border-line bg-surface shadow-elev-1", className)} {...props} />;
 }
 
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

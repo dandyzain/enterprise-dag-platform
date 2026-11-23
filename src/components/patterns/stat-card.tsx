@@ -46,9 +46,9 @@ export function StatCard({ label, value, decimals = 0, suffix, locale, hint, ico
           </span>
         ) : null}
       </div>
-      <div className="mt-3 flex flex-col gap-2 @min-[250px]:flex-row @min-[250px]:items-end @min-[250px]:justify-between @min-[250px]:gap-3">
+      <div className="mt-3 flex flex-col gap-2 @min-[220px]:flex-row @min-[220px]:items-end @min-[220px]:justify-between @min-[220px]:gap-3">
         <div className="min-w-0">
-          <div className="truncate text-2xl font-semibold leading-8 tracking-tight text-fg @min-[250px]:text-[28px]">
+          <div className="truncate text-2xl font-semibold leading-8 tracking-tight text-fg @min-[220px]:text-[28px]">
             {typeof value === "number" ? (
               <NumberTicker value={value} decimals={decimals} suffix={suffix} locale={locale} />
             ) : (
@@ -74,7 +74,7 @@ export function StatCard({ label, value, decimals = 0, suffix, locale, hint, ico
             data={trend.data}
             ariaLabel={trend.ariaLabel}
             formatPoint={trend.formatPoint}
-            className="mb-1 h-9 w-full shrink-0 @min-[250px]:h-10 @min-[250px]:w-28"
+            className="mb-1 h-9 w-full shrink-0 @min-[220px]:h-10 @min-[220px]:w-28"
           />
         ) : null}
       </div>

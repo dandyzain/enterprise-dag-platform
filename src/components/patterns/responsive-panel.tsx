@@ -42,7 +42,15 @@ export function ResponsivePanel({
   if (isDesktop) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent closeLabel={closeLabel} className={cn(width, className)}>
+        <SheetContent
+          closeLabel={closeLabel}
+          className={cn(width, className)}
+          // Focus the panel itself (its title is announced) instead of popping the first button's tooltip.
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            (e.currentTarget as HTMLElement).focus();
+          }}
+        >
           <div className="border-b border-line px-5 py-4 pr-14">
             <SheetTitle className="text-base font-semibold text-fg">{title}</SheetTitle>
             {description ? <SheetDescription className="mt-0.5 text-sm text-fg-muted">{description}</SheetDescription> : null}

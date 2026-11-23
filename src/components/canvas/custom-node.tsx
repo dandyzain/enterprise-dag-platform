@@ -68,6 +68,7 @@ export const CustomWorkflowNode = memo(({ id, data, selected }: NodeProps) => {
       <div
         className={cn(
           "nf-node group relative w-[260px] select-none rounded-xl border bg-surface shadow-elev-1",
+          !isFailed && "animate-in fade-in-0 zoom-in-95 duration-300 ease-emphasized",
           "transition-[border-color,box-shadow,transform] duration-200 ease-standard",
           selected ? "border-accent/70 shadow-elev-2 ring-3 ring-accent/15" : "border-line hover:border-line-strong hover:shadow-elev-2",
           isSuccess && !selected && "border-success/45",

@@ -44,7 +44,10 @@ export function DagThumbnail({ nodes, edges, className, ariaLabel }: DagThumbnai
 
   if (nodes.length === 0) {
     return (
-      <div className={cn("flex items-center justify-center", className)} role="img" aria-label={ariaLabel}>
+      <div
+        className={cn("flex items-center justify-center", className)}
+        {...(ariaLabel ? { role: "img", "aria-label": ariaLabel } : { "aria-hidden": true })}
+      >
         <div className="h-6 w-16 rounded-md border border-dashed border-line-strong" />
       </div>
     );
@@ -55,8 +58,7 @@ export function DagThumbnail({ nodes, edges, className, ariaLabel }: DagThumbnai
       viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="xMidYMid meet"
       className={cn("h-full w-full", className)}
-      role="img"
-      aria-label={ariaLabel}
+      {...(ariaLabel ? { role: "img", "aria-label": ariaLabel } : { "aria-hidden": true })}
     >
       <g fill="none" strokeWidth={1.25} strokeLinecap="round">
         {edges.map((e, i) => {

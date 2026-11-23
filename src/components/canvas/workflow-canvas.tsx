@@ -983,6 +983,17 @@ function WorkflowCanvasInner({
     [cycleNodeIds, hoveredEdgeId, handleNodeAction, openPicker, handleEdgeDelete]
   );
 
+  // Keyboard users select nodes with Tab + Enter/Space; keep the inspector in sync with selection.
+  const onSelectionChange = useCallback(
+    ({ nodes: selected }: { nodes: Node[] }) => {
+      if (selected.length === 1 && selected[0].id !== selectedNodeId) {
+        setInspectorTab("configure");
+        setSelectedNodeId(selected[0].id);
+      }
+    },
+    [selectedNodeId]
+  );
+
   const closeInspector = useCallback(() => {
     setSelectedNodeId(null);
     setNodes((nds) => (nds.some((n) => n.selected) ? nds.map((n) => (n.selected ? { ...n, selected: false } : n)) : nds));
@@ -1060,6 +1071,7 @@ function WorkflowCanvasInner({
                   setSelectedNodeId(node.id);
                 }}
                 onPaneClick={() => setSelectedNodeId(null)}
+                onSelectionChange={onSelectionChange}
                 onEdgeMouseEnter={(_, edge) => setHoveredEdgeId(edge.id)}
                 onEdgeMouseLeave={() => setHoveredEdgeId(null)}
                 nodeTypes={nodeTypes}
