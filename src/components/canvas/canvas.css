@@ -1,0 +1,139 @@
+/* React Flow theming — every colour comes from the design tokens. */
+.react-flow.nf-flow {
+  --xy-background-color-default: var(--app);
+  --xy-background-pattern-dots-color-default: var(--grid-dot);
+  --xy-edge-stroke-default: var(--line-strong);
+  --xy-edge-stroke-selected-default: var(--accent);
+  --xy-edge-stroke-width-default: 1.75;
+  --xy-connectionline-stroke-default: var(--accent);
+  --xy-connectionline-stroke-width-default: 1.75;
+  --xy-minimap-background-color-default: var(--surface);
+  --xy-minimap-mask-background-color-default: color-mix(in oklab, var(--app) 72%, transparent);
+  --xy-minimap-mask-stroke-color-default: var(--line-strong);
+  --xy-minimap-mask-stroke-width-default: 1;
+  --xy-minimap-node-background-color-default: var(--surface-3);
+  --xy-minimap-node-stroke-color-default: transparent;
+  --xy-handle-background-color-default: var(--surface);
+  --xy-handle-border-color-default: var(--line-strong);
+  --xy-selection-background-color-default: color-mix(in oklab, var(--accent) 7%, transparent);
+  --xy-selection-border-default: 1px dashed color-mix(in oklab, var(--accent) 70%, transparent);
+  --xy-attribution-background-color-default: transparent;
+  background: var(--app);
+}
+
+.react-flow.nf-flow .react-flow__pane {
+  cursor: grab;
+}
+.react-flow.nf-flow .react-flow__pane.dragging,
+.react-flow.nf-flow .react-flow__pane:active {
+  cursor: grabbing;
+}
+
+.react-flow.nf-flow .react-flow__node:focus-visible {
+  outline: none;
+}
+.react-flow.nf-flow .react-flow__node:focus-visible .nf-node {
+  box-shadow: 0 0 0 2px var(--app), 0 0 0 4px var(--ring);
+}
+
+.react-flow.nf-flow .react-flow__minimap {
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  box-shadow: var(--elev-2);
+  overflow: hidden;
+}
+
+.react-flow.nf-flow .react-flow__connection-path {
+  stroke-dasharray: 6 4;
+  animation: dash-flow 0.9s linear infinite;
+}
+
+/* Handles: small visible dot, generous invisible hit area. */
+.react-flow.nf-flow .nf-handle {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+  border-color: var(--surface);
+  background: var(--line-strong);
+  transition: background-color 150ms var(--ease-standard), transform 150ms var(--ease-standard),
+    box-shadow 150ms var(--ease-standard);
+}
+.react-flow.nf-flow .nf-handle::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+  border-radius: 9999px;
+}
+.react-flow.nf-flow .react-flow__node:hover .nf-handle,
+.react-flow.nf-flow .nf-handle.connectingfrom,
+.react-flow.nf-flow .nf-handle.connectingto {
+  background: var(--accent);
+  transform: translate(-50%, var(--nf-handle-y, -50%)) scale(1.2);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 22%, transparent);
+}
+.react-flow.nf-flow .nf-handle.react-flow__handle-top {
+  --nf-handle-y: -50%;
+}
+.react-flow.nf-flow .nf-handle.react-flow__handle-bottom {
+  --nf-handle-y: 50%;
+}
+@media (pointer: coarse) {
+  .react-flow.nf-flow .nf-handle {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* Running node: a conic "signal" sweep travelling around the border. */
+@property --nf-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes nf-angle {
+  to {
+    --nf-angle: 360deg;
+  }
+}
+.nf-node-ring {
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--nf-angle),
+    transparent 0deg,
+    var(--signal-1) 70deg,
+    var(--signal-2) 140deg,
+    var(--signal-3) 200deg,
+    transparent 260deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: nf-angle 1.6s linear infinite;
+  pointer-events: none;
+}
+
+/* Running edge: flowing dashes. */
+.nf-edge-running {
+  stroke-dasharray: 7 5;
+  animation: dash-flow 0.8s linear infinite;
+}
+
+/* Success check draw */
+.nf-check path {
+  stroke-dasharray: 24;
+  animation: var(--animate-check-draw);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nf-node-ring {
+    animation: none;
+    background: var(--running);
+  }
+  .nf-edge-running,
+  .react-flow.nf-flow .react-flow__connection-path {
+    animation: none;
+  }
+}

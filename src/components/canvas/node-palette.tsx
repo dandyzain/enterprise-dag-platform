@@ -2,215 +2,154 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import {
-  Play,
-  Webhook,
-  Send,
-  GitBranch,
-  Plus,
-  GripVertical,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Layers,
-} from "lucide-react";
-import { WorkflowNodeType } from "@/lib/dag/types";
-import { Button } from "@/components/ui/button";
+import { PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
+import type { WorkflowNodeType } from "@/lib/dag/types";
+import { Input } from "@/components/ui/input";
+import { Tooltip } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import { NODE_META, NODE_TYPES } from "./node-meta";
 
 interface NodePaletteProps {
   onAddNode: (type: WorkflowNodeType) => void;
-  isOpenMobile?: boolean;
-  onCloseMobile?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  readOnly?: boolean;
 }
 
-export function NodePalette({
-  onAddNode,
-  isOpenMobile = false,
-  onCloseMobile,
-  isCollapsed = false,
-  onToggleCollapse,
-}: NodePaletteProps) {
-  const t = useTranslations("nodes");
-  const tCommon = useTranslations("workflow.palette");
+const GROUPS = ["triggers", "actions", "logic"] as const;
 
-  const items: {
-    type: WorkflowNodeType;
-    icon: React.ComponentType<{ className?: string }>;
-    color: string;
-    bgColor: string;
-    name: string;
-    description: string;
-  }[] = [
-    {
-      type: "trigger",
-      icon: Play,
-      color: "text-violet-400",
-      bgColor: "bg-violet-950/30 border-violet-500/20 group-hover:border-violet-500/40",
-      name: t("trigger.name"),
-      description: t("trigger.description"),
-    },
-    {
-      type: "webhook",
-      icon: Webhook,
-      color: "text-purple-400",
-      bgColor: "bg-purple-950/30 border-purple-500/20 group-hover:border-purple-500/40",
-      name: t("webhook.name"),
-      description: t("webhook.description"),
-    },
-    {
-      type: "action",
-      icon: Send,
-      color: "text-sky-400",
-      bgColor: "bg-sky-950/30 border-sky-500/20 group-hover:border-sky-500/40",
-      name: t("action.name"),
-      description: t("action.description"),
-    },
-    {
-      type: "filter",
-      icon: GitBranch,
-      color: "text-amber-400",
-      bgColor: "bg-amber-950/30 border-amber-500/20 group-hover:border-amber-500/40",
-      name: t("filter.name"),
-      description: t("filter.description"),
-    },
-  ];
+/** Desktop step library: drag onto the canvas, or click/Enter to add. */
+export function NodePalette({ onAddNode, isCollapsed = false, onToggleCollapse, readOnly = false }: NodePaletteProps) {
+  const t = useTranslations("editor.palette");
+  const tGroups = useTranslations("editor.picker.groups");
+  const tNodes = useTranslations("nodes");
+  const [query, setQuery] = React.useState("");
 
   function onDragStart(event: React.DragEvent, nodeType: WorkflowNodeType) {
     event.dataTransfer.setData("application/reactflow", nodeType);
     event.dataTransfer.effectAllowed = "move";
   }
 
-  function handleSelectNode(type: WorkflowNodeType) {
-    onAddNode(type);
-    if (onCloseMobile) {
-      onCloseMobile();
-    }
-  }
+  const q = query.trim().toLowerCase();
+  const visible = NODE_TYPES.filter(
+    (type) => !q || tNodes(`${type}.name`).toLowerCase().includes(q) || tNodes(`${type}.description`).toLowerCase().includes(q)
+  );
 
   return (
-    <>
-      {/* Mobile Backdrop Overlay */}
-      {isOpenMobile && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden animate-in fade-in duration-200"
-          onClick={onCloseMobile}
-        />
+    <aside
+      aria-label={t("title")}
+      className={cn(
+        "hidden shrink-0 flex-col border-r border-line bg-surface/60 transition-[width] duration-300 ease-emphasized md:flex",
+        isCollapsed ? "w-14" : "w-64"
+      )}
+    >
+      <div className={cn("flex h-12 items-center border-b border-line px-3", isCollapsed ? "justify-center" : "justify-between")}>
+        {!isCollapsed && <h2 className="px-1 text-[13px] font-semibold text-fg">{t("title")}</h2>}
+        {onToggleCollapse && (
+          <Tooltip content={isCollapsed ? t("expand") : t("collapse")} side="right">
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              aria-label={isCollapsed ? t("expand") : t("collapse")}
+              aria-expanded={!isCollapsed}
+              className="inline-flex size-8 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-surface-2 hover:text-fg"
+            >
+              {isCollapsed ? <PanelLeftOpen className="size-4" aria-hidden /> : <PanelLeftClose className="size-4" aria-hidden />}
+            </button>
+          </Tooltip>
+        )}
+      </div>
+
+      {!isCollapsed && (
+        <div className="px-3 pt-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-fg-subtle" aria-hidden />
+            <Input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("search")}
+              aria-label={t("search")}
+              className="h-8 pl-8 sm:text-[13px]"
+            />
+          </div>
+        </div>
       )}
 
-      <aside
-        className={`
-          ${isOpenMobile ? "fixed inset-y-0 left-0 z-50 flex shadow-2xl animate-in slide-in-from-left duration-200" : "hidden md:flex"}
-          ${isCollapsed ? "w-14" : "w-64 lg:w-72"}
-          border-r border-zinc-800 bg-zinc-950/95 backdrop-blur-md flex-col h-full shrink-0 transition-all duration-200 select-none
-        `}
-      >
-        {/* Header */}
-        <div className="p-3.5 border-b border-zinc-800/80 flex items-center justify-between">
-          {!isCollapsed && (
-            <div className="min-w-0 pr-2">
-              <h2 className="text-xs font-semibold text-zinc-100 uppercase tracking-wider truncate">
-                {tCommon("title")}
-              </h2>
-              <p className="mt-0.5 text-[10px] text-zinc-400 truncate">
-                {tCommon("subtitle")}
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-center gap-1 ml-auto">
-            {/* Desktop Collapse Toggle */}
-            {onToggleCollapse && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onToggleCollapse}
-                className="hidden md:flex h-7 w-7 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
-                title={isCollapsed ? "Expand Palette" : "Collapse Palette"}
-              >
-                {isCollapsed ? (
-                  <ChevronRight className="h-4 w-4" />
-                ) : (
-                  <ChevronLeft className="h-4 w-4" />
-                )}
-              </Button>
-            )}
-
-            {/* Mobile Close Button */}
-            {onCloseMobile && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onCloseMobile}
-                className="md:hidden h-7 w-7 text-zinc-400 hover:text-zinc-100"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Node Items List */}
-        <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
-          {items.map((item) => {
-            const Icon = item.icon;
-
-            if (isCollapsed) {
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {isCollapsed ? (
+          <ul className="space-y-1.5">
+            {NODE_TYPES.map((type) => {
+              const meta = NODE_META[type];
+              const Icon = meta.icon;
               return (
-                <button
-                  key={item.type}
-                  onClick={() => handleSelectNode(item.type)}
-                  className={`w-full h-9 flex items-center justify-center rounded-lg border ${item.bgColor} ${item.color} hover:brightness-125 transition-all`}
-                  title={`Add ${item.name}`}
-                >
-                  <Icon className="h-4 w-4" />
-                </button>
-              );
-            }
-
-            return (
-              <div
-                key={item.type}
-                draggable
-                onDragStart={(e) => onDragStart(e, item.type)}
-                onClick={() => handleSelectNode(item.type)}
-                className="group relative flex flex-col rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 hover:bg-zinc-850 hover:border-zinc-700 transition-all duration-150 cursor-grab active:cursor-grabbing"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      className={`flex h-7 w-7 items-center justify-center rounded-lg border ${item.bgColor} ${item.color}`}
+                <li key={type}>
+                  <Tooltip content={tNodes(`${type}.name`)} side="right">
+                    <button
+                      type="button"
+                      draggable={!readOnly}
+                      onDragStart={(e) => onDragStart(e, type)}
+                      onClick={() => onAddNode(type)}
+                      aria-label={tNodes(`${type}.name`)}
+                      className="flex size-8 items-center justify-center rounded-lg transition-transform hover:scale-105 active:scale-95"
+                      style={{ background: `color-mix(in oklab, ${meta.color} 14%, transparent)`, color: meta.color }}
                     >
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <span className="text-xs font-medium text-zinc-200 group-hover:text-zinc-50">
-                      {item.name}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 text-zinc-500 group-hover:text-zinc-300">
-                    <GripVertical className="h-3.5 w-3.5" />
-                    <Plus className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </div>
-                <p className="mt-2 text-[10px] text-zinc-400 line-clamp-2 leading-relaxed">
-                  {item.description}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Footer Guidance for Drag & Drop */}
-        {!isCollapsed && (
-          <div className="p-3 border-t border-zinc-800/60 hidden md:block">
-            <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
-              <Layers className="h-3 w-3 shrink-0" />
-              <span>Drag & drop onto canvas or click to add</span>
-            </div>
+                      <Icon className="size-4" aria-hidden />
+                    </button>
+                  </Tooltip>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div className="space-y-4">
+            {GROUPS.map((group) => {
+              const items = visible.filter((type) => NODE_META[type].group === group);
+              if (items.length === 0) return null;
+              return (
+                <section key={group} aria-label={tGroups(group)}>
+                  <h3 className="mb-1.5 px-1 text-xs font-medium text-fg-subtle">{tGroups(group)}</h3>
+                  <ul className="space-y-1.5">
+                    {items.map((type) => {
+                      const meta = NODE_META[type];
+                      const Icon = meta.icon;
+                      return (
+                        <li key={type}>
+                          <button
+                            type="button"
+                            draggable={!readOnly}
+                            onDragStart={(e) => onDragStart(e, type)}
+                            onClick={() => onAddNode(type)}
+                            className={cn(
+                              "group flex w-full cursor-grab items-start gap-2.5 rounded-xl border border-line bg-surface p-2.5 text-left shadow-elev-1",
+                              "transition-[border-color,transform,box-shadow] duration-150 ease-standard hover:-translate-y-px hover:border-line-strong hover:shadow-elev-2 active:cursor-grabbing"
+                            )}
+                          >
+                            <span
+                              className="flex size-8 shrink-0 items-center justify-center rounded-lg"
+                              style={{ background: `color-mix(in oklab, ${meta.color} 14%, transparent)`, color: meta.color }}
+                            >
+                              <Icon className="size-4" aria-hidden />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-[13px] font-medium text-fg">{tNodes(`${type}.name`)}</span>
+                              <span className="mt-0.5 line-clamp-2 block text-xs leading-[18px] text-fg-subtle">
+                                {tNodes(`${type}.description`)}
+                              </span>
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              );
+            })}
           </div>
         )}
-      </aside>
-    </>
+      </div>
+
+      {!isCollapsed && <p className="border-t border-line px-4 py-3 text-xs leading-5 text-fg-subtle">{t("hint")}</p>}
+    </aside>
   );
 }
