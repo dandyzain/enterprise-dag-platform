@@ -11,18 +11,15 @@ interface LogoMarkProps {
 }
 
 /**
- * NexusFlow minimalist DAG logo mark — a diamond DAG (input → parallel tiers →
- * output) fused with an "N", in the emerald → cyan → blue signal gradient.
- * Gradient/filter IDs are generated per instance so multiple marks on one page
- * never collide.
+ * NexusFlow mark — minimalist.
+ * A single continuous stroke draws an "N" that doubles as a flow: an input
+ * node (bottom-left) travels up, across and up to an output node (top-right).
+ * One shape, one gradient (the brand "signal"), no shadows or fine detail, so
+ * it stays crisp down to 16px. Gradient IDs are unique per instance.
  */
 export function NexusLogoMark({ size = 28, className = "", animated = false, title }: LogoMarkProps) {
   const numSize = typeof size === "number" ? size : parseInt(size, 10) || 28;
-  const uid = useId().replace(/:/g, "");
-  const gradientId = `nx-grad-${uid}`;
-  const glowId = `nx-glow-${uid}`;
-  const bgId = `nx-bg-${uid}`;
-  const shadowId = `nx-shadow-${uid}`;
+  const gradientId = `nx-${useId().replace(/:/g, "")}`;
 
   return (
     <svg
@@ -36,51 +33,34 @@ export function NexusLogoMark({ size = 28, className = "", animated = false, tit
       aria-label={title}
       className={cn(
         "shrink-0 transition-transform duration-300 ease-emphasized",
-        animated && "group-hover:scale-105 group-hover:-rotate-3",
+        animated && "group-hover:scale-105",
         className
       )}
     >
       <defs>
-        <linearGradient id={gradientId} x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#10B981" />
-          <stop offset="55%" stopColor="#06B6D4" />
-          <stop offset="100%" stopColor="#3B82F6" />
+        <linearGradient id={gradientId} x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#10B981" />
+          <stop offset="0.55" stopColor="#06B6D4" />
+          <stop offset="1" stopColor="#3B82F6" />
         </linearGradient>
-        <linearGradient id={glowId} x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#10B981" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#06B6D4" stopOpacity="0.05" />
-        </linearGradient>
-        <linearGradient id={bgId} x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#18181B" />
-          <stop offset="100%" stopColor="#09090B" />
-        </linearGradient>
-        <filter id={shadowId} x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="1" stdDeviation="1" floodColor="#10B981" floodOpacity="0.4" />
-        </filter>
       </defs>
-
-      <rect x="1" y="1" width="30" height="30" rx="8" fill={`url(#${bgId})`} stroke="#27272A" strokeWidth="1.2" />
-      <rect x="1.5" y="1.5" width="29" height="29" rx="7.5" fill={`url(#${glowId})`} />
-
-      <g stroke={`url(#${gradientId})`} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M7.5 16L16 7.5" opacity="0.9" />
-        <path d="M7.5 16L16 24.5" opacity="0.9" />
-        <path d="M16 7.5L16 24.5" strokeDasharray="2 2" strokeWidth="1.2" opacity="0.4" />
-        <path d="M7.5 16L24.5 16" strokeWidth="1.4" opacity="0.75" />
-        <path d="M16 7.5L24.5 16" opacity="0.95" />
-        <path d="M16 24.5L24.5 16" opacity="0.95" />
-      </g>
-
-      <circle cx="7.5" cy="16" r="2.2" fill="#10B981" filter={`url(#${shadowId})`} />
-      <circle cx="7.5" cy="16" r="1" fill="#FFFFFF" />
-      <circle cx="16" cy="7.5" r="2" fill="#06B6D4" />
-      <circle cx="16" cy="7.5" r="0.9" fill="#FFFFFF" />
-      <circle cx="16" cy="24.5" r="2" fill="#06B6D4" />
-      <circle cx="16" cy="24.5" r="0.9" fill="#FFFFFF" />
-      <circle cx="24.5" cy="16" r="2.4" fill="#3B82F6" filter={`url(#${shadowId})`} />
-      <circle cx="24.5" cy="16" r="1.1" fill="#FFFFFF" />
+      <rect width="32" height="32" rx="9" fill={`url(#${gradientId})`} />
+      <path
+        d="M10.5 21.5V10.5L21.5 21.5V10.5"
+        stroke="#FFFFFF"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="10.5" cy="21.5" r="2.6" fill="#FFFFFF" />
+      <circle cx="21.5" cy="10.5" r="2.6" fill="#FFFFFF" />
     </svg>
   );
+}
+
+/** Single-colour wordmark; the gradient lives only in the mark. */
+export function NexusWordmark({ className }: { className?: string }) {
+  return <span className={cn("font-semibold tracking-tight text-fg", className)}>NexusFlow</span>;
 }
 
 interface LogoProps {
@@ -114,17 +94,11 @@ export function NexusLogo({
 
   return (
     <div className={cn("group flex min-w-0 select-none items-center gap-2.5", className)}>
-      <div className="relative">
-        <NexusLogoMark size={current.icon} animated={animated} />
-        <div className="absolute inset-0 -z-10 rounded-lg bg-accent/25 opacity-0 blur-md transition-opacity duration-300 group-hover:opacity-100" />
-      </div>
-
+      <NexusLogoMark size={current.icon} animated={animated} />
       {showText && (
         <div className="flex min-w-0 flex-col justify-center">
           <div className="flex items-center gap-1.5 leading-none">
-            <span className={cn("font-semibold tracking-tight text-fg", current.text)}>
-              Nexus<span className="text-signal">Flow</span>
-            </span>
+            <NexusWordmark className={current.text} />
             {showBadge && (
               <span className="shrink-0 rounded-md border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-2xs font-medium text-fg-muted">
                 {badgeText}
