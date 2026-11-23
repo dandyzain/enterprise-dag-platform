@@ -500,6 +500,24 @@
       "steps": "Langkah",
       "lastRun": "Eksekusi terakhir",
       "updated": "Diperbarui"
+    },
+    "hero": {
+      "greeting": "Selamat datang kembali,",
+      "greetingGuest": "Selamat datang di",
+      "lead": "Rancang, jalankan, dan pantau",
+      "rotating": [
+        "pipeline otomasi",
+        "integrasi webhook",
+        "alur pengayaan data",
+        "gerbang persetujuan"
+      ],
+      "liveRuns": "{count} eksekusi minggu ini",
+      "ready": "Ruang kerja Anda siap",
+      "previewTitle": "Pratinjau langsung",
+      "previewLabel": "Pratinjau animasi {name} yang berjalan langkah demi langkah",
+      "running": "Menjalankan langkah {current} dari {total}",
+      "done": "Semua {total} langkah berhasil",
+      "queued": "Dalam antrean"
     }
   },
   "templates": {

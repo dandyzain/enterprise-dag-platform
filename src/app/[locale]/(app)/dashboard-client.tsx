@@ -30,7 +30,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Card } from "@/components/ui/misc";
-import { PageHeader } from "@/components/patterns/page-header";
 import { StatCard } from "@/components/patterns/stat-card";
 import { EmptyState } from "@/components/patterns/empty-state";
 import { DagThumbnail } from "@/components/patterns/dag-thumbnail";
@@ -39,7 +38,8 @@ import { StatusIcon, WorkflowStatusBadge, type ExecutionStatus, type WorkflowSta
 import { RevealGroup, RevealItem, useSpotlight } from "@/components/motion/reveal";
 import { useShell } from "@/components/shell/shell-context";
 import { cn, formatDuration, splitNameTitle } from "@/lib/utils";
-import { duration, ease } from "@/components/motion/presets";
+import { duration, ease, staggerContainer } from "@/components/motion/presets";
+import { DashboardHero } from "./dashboard-hero";
 
 export interface DashboardWorkflow {
   id: string;
@@ -138,6 +138,19 @@ export function DashboardClient({ userName, workflows, recentRuns, metrics }: Da
     });
   }, [workflows, query, status, sort, locale]);
 
+  // Stagger cards only on the first paint; later filter changes animate instantly.
+  const firstPaint = React.useRef(true);
+  React.useEffect(() => {
+    const id = setTimeout(() => (firstPaint.current = false), 1200);
+    return () => clearTimeout(id);
+  }, []);
+
+  const preview = React.useMemo(() => {
+    if (workflows.length === 0) return null;
+    const latest = workflows.reduce((a, b) => (new Date(b.updatedAt) > new Date(a.updatedAt) ? b : a));
+    return { name: latest.name, nodes: latest.nodes, edges: latest.edges };
+  }, [workflows]);
+
   const hasFilters = query.trim() !== "" || status !== "all";
   const firstName = userName ? splitNameTitle(userName).name.split(" ")[0] : null;
 
@@ -149,32 +162,7 @@ export function DashboardClient({ userName, workflows, recentRuns, metrics }: Da
 
   return (
     <div className="relative space-y-8">
-      {/* Static aurora — low-density surface only, never animated. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-64 w-[min(900px,100%)] -translate-x-1/2 opacity-70 blur-3xl"
-        style={{
-          background:
-            "radial-gradient(50% 60% at 30% 40%, color-mix(in oklab, var(--signal-1) 14%, transparent), transparent), radial-gradient(45% 55% at 70% 50%, color-mix(in oklab, var(--signal-3) 12%, transparent), transparent)",
-        }}
-      />
-
-      <PageHeader
-        title={firstName ? t("welcome", { name: firstName }) : t("welcomeGuest")}
-        description={t("subtitle")}
-        actions={
-          <>
-            <Button asChild variant="secondary">
-              <Link href="/executions">
-                <Activity aria-hidden /> {t("viewRuns")}
-              </Link>
-            </Button>
-            <Button onClick={() => setNewWorkflowOpen(true)}>
-              <Plus aria-hidden /> {t("newWorkflow")}
-            </Button>
-          </>
-        }
-      />
+      <DashboardHero firstName={firstName} runs7d={metrics.runs7d} preview={preview} />
 
       {/* KPI row */}
       <RevealGroup className="grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -334,15 +322,19 @@ export function DashboardClient({ userName, workflows, recentRuns, metrics }: Da
             </Card>
           ) : view === "grid" ? (
             <motion.ul layout className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3" aria-label={t("workflowsTitle")}>
-              <AnimatePresence initial={false} mode="popLayout">
-                {filtered.map((wf) => (
+              <AnimatePresence mode="popLayout">
+                {filtered.map((wf, i) => (
                   <motion.li
                     key={wf.id}
                     layout
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                    initial={{ opacity: 0, y: firstPaint.current ? 18 : 0, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.98 }}
-                    transition={{ duration: duration.base, ease: ease.emphasized }}
+                    transition={{
+                      duration: firstPaint.current ? duration.deliberate : duration.base,
+                      ease: ease.emphasized,
+                      delay: firstPaint.current ? 0.2 + i * 0.06 : 0,
+                    }}
                   >
                     <WorkflowCard wf={wf} />
                   </motion.li>
@@ -396,9 +388,21 @@ export function DashboardClient({ userName, workflows, recentRuns, metrics }: Da
             {recentRuns.length === 0 ? (
               <EmptyState compact icon={Activity} title={t("kpi.noData")} description={t("activityEmpty")} />
             ) : (
-              <ol className="divide-y divide-line">
+              <motion.ol
+                className="divide-y divide-line"
+                initial="hidden"
+                animate="show"
+                variants={staggerContainer(0.06, 0.3)}
+              >
                 {recentRuns.map((run) => (
-                  <li key={run.id} className="flex items-start gap-3 px-4 py-3">
+                  <motion.li
+                    key={run.id}
+                    className="flex items-start gap-3 px-4 py-3"
+                    variants={{
+                      hidden: { opacity: 0, x: 14 },
+                      show: { opacity: 1, x: 0, transition: { duration: duration.slow, ease: ease.emphasized } },
+                    }}
+                  >
                     <StatusIcon status={run.status} className="mt-0.5" />
                     <div className="min-w-0 flex-1">
                       <Link
@@ -417,9 +421,9 @@ export function DashboardClient({ userName, workflows, recentRuns, metrics }: Da
                         )}
                       </p>
                     </div>
-                  </li>
+                  </motion.li>
                 ))}
-              </ol>
+              </motion.ol>
             )}
           </Card>
         </aside>

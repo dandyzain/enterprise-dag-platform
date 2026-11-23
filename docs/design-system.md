@@ -46,6 +46,10 @@ Tokens: `src/components/motion/presets.ts` (durations 100–480ms, `standard` /
   SVG pulses are not rendered under reduced motion.
 - Signature moments: running-node conic sweep, signal pulse along active edges,
   drawn success check, failure shake, animated auto-layout, sliding nav pill.
+- Dashboard hero: drifting aurora (paused off-screen), word-by-word blur-in
+  headline, rotating subtitle (static text for screen readers), a looping
+  "live preview" that runs the latest workflow tier by tier with pointer tilt,
+  and a one-shot shine on the primary CTA.
 
 ## Components
 

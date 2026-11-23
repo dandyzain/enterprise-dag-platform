@@ -500,6 +500,24 @@
       "steps": "Steps",
       "lastRun": "Last run",
       "updated": "Updated"
+    },
+    "hero": {
+      "greeting": "Welcome back,",
+      "greetingGuest": "Welcome to",
+      "lead": "Design, run and monitor",
+      "rotating": [
+        "automation pipelines",
+        "webhook integrations",
+        "data enrichment flows",
+        "approval gates"
+      ],
+      "liveRuns": "{count, plural, one {# run} other {# runs}} this week",
+      "ready": "Your workspace is ready",
+      "previewTitle": "Live preview",
+      "previewLabel": "Animated preview of {name} running step by step",
+      "running": "Running step {current} of {total}",
+      "done": "All {total} steps succeeded",
+      "queued": "Queued"
     }
   },
   "templates": {
