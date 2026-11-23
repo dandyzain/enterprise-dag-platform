@@ -4,7 +4,8 @@ services:
     runtime: node
     plan: free
     buildCommand: pnpm install && pnpm build
-    startCommand: pnpm start
+    startCommand: pnpm db:push --skip-generate && pnpm prisma:seed && pnpm start
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
@@ -19,14 +20,27 @@ services:
           property: connectionString
       - key: ENCRYPTION_MASTER_KEY
         generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      # Public portfolio demo: demo accounts live in an isolated workspace. Set to "false" for real use.
+      - key: DEMO_MODE
+        value: "true"
+      # The worker below runs the cron scheduler.
+      - key: SCHEDULER_ENABLED
+        value: "false"
+      # Set to your public URL (used for invite links and HTTPS-only headers), e.g. https://<name>.onrender.com
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
 
   - type: worker
     name: enterprise-dag-worker
     runtime: node
     plan: starter
-    buildCommand: pnpm install
+    buildCommand: pnpm install && pnpm prisma:generate
     startCommand: pnpm worker
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: DATABASE_URL
         fromDatabase:
           name: enterprise-dag-postgres
@@ -41,6 +55,10 @@ services:
           type: web
           name: enterprise-dag-platform
           envVarKey: ENCRYPTION_MASTER_KEY
+      - key: DEMO_MODE
+        value: "true"
+      - key: SCHEDULER_ENABLED
+        value: "true"
 
 databases:
   - name: enterprise-dag-postgres

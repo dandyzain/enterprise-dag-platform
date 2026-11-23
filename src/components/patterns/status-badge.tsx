@@ -2,11 +2,11 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle2, Clock, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, CircleSlash, Clock, Loader2, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export type ExecutionStatus = "PENDING" | "RUNNING" | "SUCCESS" | "FAILED";
+export type ExecutionStatus = "PENDING" | "RUNNING" | "SUCCESS" | "FAILED" | "SKIPPED";
 export type WorkflowStatus = "DRAFT" | "PUBLISHED" | "DISABLED";
 
 const EXEC_VARIANT = {
@@ -14,6 +14,7 @@ const EXEC_VARIANT = {
   FAILED: "failed",
   RUNNING: "running",
   PENDING: "neutral",
+  SKIPPED: "neutral",
 } as const;
 
 export function ExecutionStatusBadge({ status, className }: { status: ExecutionStatus; className?: string }) {
@@ -52,6 +53,8 @@ export function StatusIcon({ status, className, label }: { status: ExecutionStat
       return <XCircle className={cn(common, "text-failed")} {...aria} />;
     case "RUNNING":
       return <Loader2 className={cn(common, "animate-spin text-running")} {...aria} />;
+    case "SKIPPED":
+      return <CircleSlash className={cn(common, "text-fg-subtle")} {...aria} />;
     default:
       return <Clock className={cn(common, "text-fg-subtle")} {...aria} />;
   }

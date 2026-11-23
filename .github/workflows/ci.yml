@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  quality:
+    name: Typecheck · Lint · Unit tests · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma:generate
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+
+  e2e:
+    name: E2E smoke (PostgreSQL + Redis + worker)
+    runs-on: ubuntu-latest
+    needs: quality
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dag_user
+          POSTGRES_PASSWORD: dag_password
+          POSTGRES_DB: enterprise_dag
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dag_user -d enterprise_dag"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://dag_user:dag_password@localhost:5432/enterprise_dag?schema=public
+      REDIS_URL: redis://localhost:6379
+      SESSION_SECRET: ci-session-secret-0123456789abcdef0123456789
+      ENCRYPTION_MASTER_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      DEMO_MODE: "true"
+      SCHEDULER_ENABLED: "false"
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma:generate
+      - run: pnpm db:push --skip-generate
+      - run: pnpm prisma:seed
+      - run: pnpm build
+      - name: Start web server and worker
+        run: |
+          nohup pnpm start > web.log 2>&1 &
+          nohup pnpm worker > worker.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:3000/api/health && exit 0; sleep 1; done
+          echo "server did not start"; cat web.log; exit 1
+      - run: pnpm test:e2e
+        env:
+          TEST_APP_URL: http://localhost:3000
+      - name: Server logs
+        if: failure()
+        run: tail -n 200 web.log worker.log

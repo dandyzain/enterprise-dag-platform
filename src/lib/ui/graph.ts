@@ -80,11 +80,13 @@ export function getAncestorIds(nodeId: string, edges: GraphEdgeLike[]): string[]
   return Array.from(seen);
 }
 
-export type NodeKind = "trigger" | "webhook" | "action" | "filter";
+export type NodeKind = "trigger" | "webhook" | "schedule" | "action" | "transform" | "delay" | "filter";
+
+const NODE_KINDS: NodeKind[] = ["trigger", "webhook", "schedule", "action", "transform", "delay", "filter"];
 
 export function nodeKind(node: GraphNodeLike): NodeKind {
-  const t = node.data?.type;
-  return t === "trigger" || t === "webhook" || t === "filter" ? t : "action";
+  const t = node.data?.type as NodeKind | undefined;
+  return t && NODE_KINDS.includes(t) ? t : "action";
 }
 
 /** Simple flat key paths of a JSON-ish object: { a: { b: 1 } } → ["a", "a.b"]. */

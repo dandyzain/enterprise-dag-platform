@@ -9,11 +9,13 @@ import { Topbar } from "./topbar";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { CommandMenu, type CommandWorkflow } from "./command-menu";
 import { NewWorkflowDialog } from "./new-workflow-dialog";
+import { AccountProvider, type AccountContextValue } from "./account-context";
 
 interface AppShellProps {
   session: SessionUser | null;
   workflows: CommandWorkflow[];
   initialCollapsed: boolean;
+  account: AccountContextValue;
   children: React.ReactNode;
 }
 
@@ -27,9 +29,10 @@ function ShellOverlays({ session, workflows }: { session: SessionUser | null; wo
   );
 }
 
-export function AppShell({ session, workflows, initialCollapsed, children }: AppShellProps) {
+export function AppShell({ session, workflows, initialCollapsed, account, children }: AppShellProps) {
   const t = useTranslations("ui");
   return (
+    <AccountProvider value={account}>
     <ShellProvider>
       <a
         href="#main"
@@ -49,6 +52,7 @@ export function AppShell({ session, workflows, initialCollapsed, children }: App
       <MobileTabBar />
       <ShellOverlays session={session} workflows={workflows} />
     </ShellProvider>
+    </AccountProvider>
   );
 }
 

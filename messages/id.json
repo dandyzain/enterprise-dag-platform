@@ -98,8 +98,19 @@
       "fields": {
         "path": "URL Slug Jalur Webhook",
         "pathPlaceholder": "contoh: stripe-payment-hook",
-        "authHeader": "Kunci Rahasia Header (Opsional)",
-        "method": "Metode HTTP"
+        "authHeader": "Secret bersama (opsional)",
+        "method": "Metode HTTP",
+        "authHeaderHint": "Pengirim wajib menyertakannya di header X-Webhook-Secret atau Authorization: Bearer. Dibandingkan secara constant-time.",
+        "authHeaderPlaceholder": "Tempel atau buat secret acak yang panjang",
+        "signatureProvider": "Verifikasi tanda tangan",
+        "providers": {
+          "none": "Tidak ada",
+          "stripe": "Stripe (Stripe-Signature)",
+          "github": "GitHub (X-Hub-Signature-256)",
+          "hmac": "HMAC-SHA256 generik (X-Signature)"
+        },
+        "signingSecretCredential": "Signing secret (nama credential di Vault)",
+        "signingSecretHint": "Simpan signing secret dari penyedia di Vault lalu rujuk dengan namanya."
       },
       "short": "Webhook"
     },
@@ -114,7 +125,8 @@
         "method": "Metode HTTP",
         "headers": "Header Permintaan (JSON)",
         "body": "Isi Permintaan (JSON atau teks tersisip)",
-        "timeout": "Batas Waktu (milidetik)"
+        "timeout": "Batas Waktu (milidetik)",
+        "failOnHttpError": "Gagalkan langkah jika HTTP 4xx/5xx"
       },
       "short": "Permintaan HTTP"
     },
@@ -138,6 +150,46 @@
         }
       },
       "short": "Filter"
+    },
+    "schedule": {
+      "name": "Jadwal",
+      "badge": "JADWAL",
+      "description": "Menjalankan workflow sesuai jadwal cron (UTC) setelah dipublikasikan.",
+      "defaultLabel": "Eksekusi Terjadwal",
+      "short": "Jadwal",
+      "fields": {
+        "cron": "Ekspresi cron (UTC)",
+        "cronHint": "menit jam tanggal bulan hari — mis. 0 9 * * 1-5 berjalan setiap hari kerja pukul 09:00 UTC.",
+        "payload": "Payload untuk eksekusi (JSON)"
+      },
+      "presets": {
+        "every15": "Tiap 15 menit",
+        "hourly": "Tiap jam",
+        "weekdays": "Hari kerja 09:00",
+        "daily": "Harian 00:00"
+      }
+    },
+    "transform": {
+      "name": "Transformasi Data",
+      "badge": "TRANSFORM",
+      "description": "Menyusun objek JSON baru dari data trigger dan langkah sebelumnya dengan '{{variabel}}' — tanpa kode.",
+      "defaultLabel": "Petakan Field",
+      "short": "Transformasi",
+      "fields": {
+        "template": "Template output (JSON)",
+        "templateHint": "Gunakan '{{trigger.body.x}}' atau '{{steps.<id>.output.y}}'. Langkah berikutnya membaca hasilnya sebagai '{{steps.<id langkah ini>.output.<field>}}'."
+      }
+    },
+    "delay": {
+      "name": "Jeda",
+      "badge": "JEDA",
+      "description": "Menunggu selama waktu tertentu sebelum melanjutkan (maks. 30 detik, dalam batas durasi paket).",
+      "defaultLabel": "Tunggu",
+      "short": "Jeda",
+      "fields": {
+        "durationMs": "Waktu tunggu (milidetik)",
+        "durationHint": "0–30.000 ms."
+      }
     }
   },
   "validation": {
@@ -209,7 +261,9 @@
       "overview": "Paket & penggunaan",
       "team": "Tim",
       "security": "Keamanan",
-      "permissions": "Hak akses"
+      "permissions": "Hak akses",
+      "account": "Akun",
+      "audit": "Log audit"
     },
     "plan": "Paket {tier}",
     "unlimited": "Tanpa batas",
@@ -252,7 +306,7 @@
       "rateLimit": {
         "title": "Pembatasan laju per penyewa",
         "body": "Rute ingesti memakai token bucket per IP dan ruang kerja. Lonjakan melebihi kapasitas mendapat HTTP 429 dengan Retry-After.",
-        "status": "60 req/menit"
+        "status": "Aktif"
       }
     },
     "permissionsTitle": "Hak akses peran",
@@ -297,6 +351,92 @@
       "workspaceManage": {
         "label": "Mengelola ruang kerja",
         "description": "Kuota, paket, dan akses anggota"
+      },
+      "memberManage": {
+        "label": "Kelola anggota",
+        "description": "Mengundang orang, mengubah role, dan mengeluarkan anggota."
+      },
+      "auditView": {
+        "label": "Lihat log audit",
+        "description": "Melihat siapa yang mengubah workflow, credential, dan anggota."
+      }
+    },
+    "team": {
+      "inviteTitle": "Undang rekan tim",
+      "inviteHint": "Kami akan membuat tautan undangan sekali pakai (berlaku 7 hari) untuk Anda bagikan.",
+      "email": "Email",
+      "role": "Role",
+      "sendInvite": "Buat undangan",
+      "linkReady": "Tautan undangan untuk {email}",
+      "copyLink": "Salin tautan",
+      "membersTitle": "Anggota ({count})",
+      "membersHint": "Orang yang memiliki akses ke workspace ini.",
+      "you": "Anda",
+      "demo": "Demo",
+      "changeRole": "Ubah role {name}",
+      "remove": "Keluarkan {name}",
+      "assumeRole": "Gunakan role",
+      "pendingTitle": "Undangan tertunda ({count})",
+      "pendingHint": "Undangan yang belum diterima.",
+      "expires": "kedaluwarsa <time></time>",
+      "revoke": "Batalkan",
+      "removeTitle": "Keluarkan {name}?",
+      "removeBody": "Mereka akan langsung kehilangan akses ke workflow, eksekusi, dan credential di workspace ini.",
+      "removeConfirm": "Keluarkan anggota",
+      "failed": "Terjadi kesalahan. Silakan coba lagi.",
+      "invited": "Undangan untuk {email} telah dibuat.",
+      "roleChanged": "{name} sekarang {role}.",
+      "removed": "{name} telah dikeluarkan.",
+      "revoked": "Undangan untuk {email} dibatalkan."
+    },
+    "accountTab": {
+      "demoReadOnly": "Akun demo dipakai bersama, sehingga profil dan password-nya tidak dapat diubah.",
+      "profileTitle": "Profil",
+      "name": "Nama tampilan",
+      "email": "Email",
+      "saveProfile": "Simpan profil",
+      "passwordTitle": "Password",
+      "passwordHint": "Mengganti password akan mengeluarkan Anda dari semua perangkat lain.",
+      "currentPassword": "Password saat ini",
+      "newPassword": "Password baru",
+      "confirmPassword": "Konfirmasi password baru",
+      "tooShort": "Minimal {min} karakter.",
+      "mismatch": "Password tidak sama.",
+      "changePassword": "Ganti password",
+      "sessionsTitle": "Sesi",
+      "sessionsHint": "Keluar dari NexusFlow di semua browser dan perangkat, termasuk yang ini.",
+      "signOutEverywhere": "Keluar dari semua perangkat",
+      "signOutConfirm": "Semua sesi aktif akun Anda akan langsung diakhiri.",
+      "profileSaved": "Profil diperbarui.",
+      "passwordChanged": "Password diganti. Sesi lain telah dikeluarkan.",
+      "failed": "Terjadi kesalahan. Silakan coba lagi."
+    },
+    "audit": {
+      "title": "Log audit",
+      "hint": "Siapa melakukan apa di workspace ini (terbaru di atas).",
+      "search": "Saring peristiwa",
+      "empty": "Belum ada peristiwa",
+      "system": "Sistem",
+      "actions": {
+        "auth_login": "masuk",
+        "auth_logout": "keluar",
+        "auth_password_changed": "mengganti password",
+        "auth_sessions_revoked": "keluar dari semua perangkat",
+        "workflow_saved": "menyimpan workflow",
+        "workflow_published": "memublikasikan workflow",
+        "workflow_status_changed": "mengubah status workflow",
+        "workflow_duplicated": "menduplikat workflow",
+        "workflow_deleted": "menghapus workflow",
+        "workflow_executed": "menjalankan eksekusi",
+        "execution_retried": "mengulang eksekusi",
+        "credential_created": "membuat credential",
+        "credential_rotated": "merotasi credential",
+        "credential_deleted": "menghapus credential",
+        "member_invited": "mengundang anggota",
+        "member_invitation_revoked": "membatalkan undangan",
+        "member_joined": "bergabung ke workspace",
+        "member_role_changed": "mengubah role",
+        "member_removed": "mengeluarkan anggota"
       }
     }
   },
@@ -356,7 +496,8 @@
       "viewer": "Peninjau"
     },
     "freeTier": "Termasuk paket gratis",
-    "freeTierHint": "Mesin DAG, brankas terenkripsi, dan worker antrean."
+    "freeTierHint": "Mesin DAG, brankas terenkripsi, dan worker antrean.",
+    "inviteBanner": "Anda diundang bergabung ke {workspace}. Masuk atau buat akun untuk menerima undangan."
   },
   "ui": {
     "copy": "Salin",
@@ -380,7 +521,8 @@
     "FAILED": "Gagal",
     "DRAFT": "Draf",
     "PUBLISHED": "Dipublikasikan",
-    "DISABLED": "Dinonaktifkan"
+    "DISABLED": "Dinonaktifkan",
+    "SKIPPED": "Dilewati"
   },
   "nav": {
     "main": "Navigasi utama",
@@ -436,7 +578,9 @@
     "switchAccount": "Ganti akun",
     "roleSwitched": "Beralih ke {role} ({name})",
     "roleSwitchFailed": "Gagal mengganti peran.",
-    "signedOut": "Anda telah keluar."
+    "signedOut": "Anda telah keluar.",
+    "switchWorkspace": "Ganti workspace",
+    "workspaceSwitchFailed": "Gagal mengganti workspace."
   },
   "dashboard": {
     "metaTitle": "Alur Kerja",
@@ -633,7 +777,18 @@
       "submit": "Enkripsi & simpan",
       "created": "{name} dienkripsi dan disimpan.",
       "failed": "Gagal menyimpan kredensial."
-    }
+    },
+    "noAccess": "Role Anda tidak dapat melihat credential vault. Minta akses ke owner atau admin.",
+    "rotated": "dirotasi <time></time>",
+    "rotate": "Rotasi secret",
+    "rotateNamed": "Rotasi {name}",
+    "rotateTitle": "Rotasi {name}",
+    "rotateDescription": "Ganti nilai yang tersimpan. Workflow yang merujuk credential ini akan memakai nilai baru pada eksekusi berikutnya.",
+    "newValue": "Nilai secret baru",
+    "showValue": "Tampilkan nilai",
+    "hideValue": "Sembunyikan nilai",
+    "rotateFailed": "Gagal merotasi credential.",
+    "rotatedToast": "{name} berhasil dirotasi."
   },
   "errors": {
     "notFoundTitle": "Halaman tidak ditemukan",
@@ -767,7 +922,10 @@
       "importConfirm": "Impor",
       "leaveTitle": "Buang perubahan yang belum disimpan?",
       "leaveBody": "Ada perubahan yang belum disimpan.",
-      "leaveConfirm": "Buang & keluar"
+      "leaveConfirm": "Buang & keluar",
+      "deleteTitle": "Hapus workflow ini?",
+      "deleteBody": "\"{name}\" beserta seluruh riwayat eksekusinya akan dihapus permanen.",
+      "deleteConfirm": "Hapus workflow"
     },
     "tip": {
       "mobile": "Tips: cubit untuk memperbesar dan ketuk langkah untuk mengeditnya. Layar lebih besar memberi editor lengkap.",
@@ -803,7 +961,12 @@
       "streamConnecting": "Menghubungkan ke aliran langsung untuk {id}…",
       "executionId": "ID eksekusi: {id}",
       "publishFailed": "Gagal memublikasikan alur kerja",
-      "dispatchFailed": "Pengiriman gagal"
+      "dispatchFailed": "Pengiriman gagal",
+      "statusFailed": "Gagal mengubah status workflow.",
+      "workflowDisabled": "Workflow dinonaktifkan — webhook dan jadwal dihentikan sementara.",
+      "workflowEnabled": "Workflow diaktifkan.",
+      "deleteFailed": "Gagal menghapus workflow.",
+      "workflowDeleted": "Workflow dihapus."
     },
     "runPanel": {
       "title": "Linimasa eksekusi",
@@ -815,6 +978,39 @@
       "clear": "Bersihkan",
       "collapse": "Ciutkan linimasa",
       "expand": "Bentangkan linimasa"
-    }
+    },
+    "enableWorkflow": "Aktifkan workflow",
+    "disableWorkflow": "Nonaktifkan workflow",
+    "deleteWorkflow": "Hapus workflow"
+  },
+  "workflowActions": {
+    "menu": "Aksi untuk {name}",
+    "open": "Buka di editor",
+    "duplicate": "Duplikat",
+    "enable": "Aktifkan",
+    "disable": "Nonaktifkan",
+    "delete": "Hapus",
+    "failed": "Terjadi kesalahan. Silakan coba lagi.",
+    "duplicated": "Workflow berhasil diduplikat.",
+    "disabled": "Workflow dinonaktifkan.",
+    "enabled": "Workflow diaktifkan.",
+    "deleted": "\"{name}\" dihapus.",
+    "confirmTitle": "Hapus workflow ini?",
+    "confirmBody": "\"{name}\" beserta seluruh riwayat eksekusinya akan dihapus permanen."
+  },
+  "invite": {
+    "metaTitle": "Undangan workspace",
+    "invalidTitle": "Undangan ini tidak dapat digunakan",
+    "invalidBody": "Tautan tidak valid, telah dibatalkan, atau sudah kedaluwarsa. Minta tautan baru kepada pengundang.",
+    "goToLogin": "Ke halaman masuk",
+    "title": "Bergabung ke {workspace}",
+    "body": "Undangan ini untuk {email} dengan role {role}.",
+    "wrongAccount": "Anda masuk sebagai {current}, tetapi undangan ini untuk {email}.",
+    "switchAccount": "Masuk dengan akun lain",
+    "signInToAccept": "Masuk untuk menerima",
+    "createAccount": "Buat akun",
+    "accept": "Terima undangan",
+    "accepted": "Selamat bergabung! Anda telah masuk ke workspace.",
+    "failed": "Gagal menerima undangan."
   }
 }

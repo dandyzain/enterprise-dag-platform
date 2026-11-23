@@ -18,6 +18,7 @@ import type { SessionUser } from "@/lib/services/auth-service";
 import { Link } from "@/i18n/routing";
 import { cn, getInitials, splitNameTitle } from "@/lib/utils";
 import { DEMO_PERSONAS, useAccountActions, type DemoEmail } from "@/components/shell/use-account-actions";
+import { useAccount } from "@/components/shell/account-context";
 
 interface UserNavProps {
   session: SessionUser | null;
@@ -44,7 +45,8 @@ function Avatar({ name, className }: { name: string; className?: string }) {
 
 export function UserNav({ session, variant = "compact", collapsed = false, align = "end", side = "bottom" }: UserNavProps) {
   const t = useTranslations("account");
-  const { isPending, switchRole, signOut } = useAccountActions();
+  const { isPending, switchRole, switchWorkspace, signOut } = useAccountActions();
+  const { demoMode, workspaces } = useAccount();
 
   if (!session) {
     if (variant === "sidebar" && collapsed) {
@@ -74,6 +76,7 @@ export function UserNav({ session, variant = "compact", collapsed = false, align
 
   const { name, title } = splitNameTitle(session.name);
   const activePersona = DEMO_PERSONAS.find((p) => p.email === session.email)?.email ?? "";
+  const showRoleTester = demoMode && activePersona !== "";
 
   const trigger =
     variant === "sidebar" ? (
@@ -128,18 +131,38 @@ export function UserNav({ session, variant = "compact", collapsed = false, align
             {session.workspaceTier}
           </span>
         </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="flex items-center gap-1.5">
-          <Users className="size-3.5" aria-hidden /> {t("roleTester")}
-        </DropdownMenuLabel>
-        <DropdownMenuRadioGroup value={activePersona} onValueChange={(v) => switchRole(v as DemoEmail)}>
-          {DEMO_PERSONAS.map((p) => (
-            <DropdownMenuRadioItem key={p.email} value={p.email} disabled={isPending}>
-              {t(`roles.${p.role}`)}
-              <span className="ml-auto truncate pl-3 text-xs text-fg-subtle">{p.email.split("@")[0]}</span>
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+        {workspaces.length > 1 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="flex items-center gap-1.5">
+              <Building2 className="size-3.5" aria-hidden /> {t("switchWorkspace")}
+            </DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={session.workspaceId} onValueChange={(v) => v !== session.workspaceId && switchWorkspace(v)}>
+              {workspaces.map((w) => (
+                <DropdownMenuRadioItem key={w.id} value={w.id} disabled={isPending}>
+                  <span className="truncate">{w.name}</span>
+                  <span className="ml-auto shrink-0 pl-3 text-xs text-fg-subtle">{t(`roles.${w.role}`)}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </>
+        )}
+        {showRoleTester && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="flex items-center gap-1.5">
+              <Users className="size-3.5" aria-hidden /> {t("roleTester")}
+            </DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={activePersona} onValueChange={(v) => switchRole(v as DemoEmail)}>
+              {DEMO_PERSONAS.map((p) => (
+                <DropdownMenuRadioItem key={p.email} value={p.email} disabled={isPending}>
+                  {t(`roles.${p.role}`)}
+                  <span className="ml-auto truncate pl-3 text-xs text-fg-subtle">{p.email.split("@")[0]}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href="/settings">

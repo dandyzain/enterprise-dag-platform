@@ -114,7 +114,10 @@ function RotatingText({ lead, words }: { lead: string; words: string[] }) {
 const KIND_COLOR = {
   trigger: "var(--node-trigger)",
   webhook: "var(--node-webhook)",
+  schedule: "var(--node-schedule)",
   action: "var(--node-action)",
+  transform: "var(--node-transform)",
+  delay: "var(--node-delay)",
   filter: "var(--node-filter)",
 } as const;
 

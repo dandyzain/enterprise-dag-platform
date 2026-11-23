@@ -1,6 +1,10 @@
 import React from "react";
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { redirect } from "next/navigation";
+import { getCurrentSession } from "@/lib/services/auth-service";
+import { isDemoMode } from "@/lib/config/env";
+import { previewInvitation } from "@/lib/services/workspace-service";
 import { LoginForm } from "./login-form";
 import { BrandPanel } from "./brand-panel";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -13,8 +17,24 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("metaTitle") };
 }
 
-export default async function LoginPage() {
-  const t = await getTranslations("nav");
+export const dynamic = "force-dynamic";
+
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; invite?: string }> }) {
+  const [t, locale, params, session] = await Promise.all([
+    getTranslations("nav"),
+    getLocale(),
+    searchParams,
+    getCurrentSession(),
+  ]);
+
+  const invite = params.invite ? await previewInvitation(params.invite) : null;
+
+  // Already signed in: go where the user was heading (invites are accepted on the invite page).
+  if (session && invite && params.invite) redirect(`/${locale}/invite/${encodeURIComponent(params.invite)}`);
+  if (session && !invite) {
+    const next = params.next && params.next.startsWith("/") && !params.next.startsWith("//") && !params.next.startsWith("/\\") ? params.next : "/";
+    redirect(next.startsWith(`/${locale}`) ? next : `/${locale}${next === "/" ? "" : next}`);
+  }
 
   return (
     <div className="grid min-h-dvh bg-app lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
@@ -41,7 +61,12 @@ export default async function LoginPage() {
         </header>
         <main className="relative flex flex-1 items-center justify-center px-5 pb-12 pt-4 sm:px-8">
           <React.Suspense fallback={null}>
-            <LoginForm />
+            <LoginForm
+              demoMode={isDemoMode()}
+              inviteToken={invite ? params.invite : undefined}
+              inviteEmail={invite?.email}
+              inviteWorkspace={invite?.workspaceName}
+            />
           </React.Suspense>
         </main>
       </div>

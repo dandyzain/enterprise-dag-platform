@@ -98,8 +98,19 @@
       "fields": {
         "path": "Endpoint URL Slug",
         "pathPlaceholder": "e.g., stripe-events-hook",
-        "authHeader": "Optional Secret Header Key",
-        "method": "HTTP Method"
+        "authHeader": "Shared secret (optional)",
+        "method": "HTTP Method",
+        "authHeaderHint": "Callers must send it in X-Webhook-Secret or Authorization: Bearer. Compared in constant time.",
+        "authHeaderPlaceholder": "Paste or generate a long random secret",
+        "signatureProvider": "Signature verification",
+        "providers": {
+          "none": "None",
+          "stripe": "Stripe (Stripe-Signature)",
+          "github": "GitHub (X-Hub-Signature-256)",
+          "hmac": "Generic HMAC-SHA256 (X-Signature)"
+        },
+        "signingSecretCredential": "Signing secret (vault credential name)",
+        "signingSecretHint": "Store the provider's signing secret in the Vault and reference it by name."
       },
       "short": "Webhook"
     },
@@ -114,7 +125,8 @@
         "method": "HTTP Method",
         "headers": "Request Headers (JSON)",
         "body": "Request Body Payload (JSON or interpolated strings)",
-        "timeout": "Timeout (milliseconds)"
+        "timeout": "Timeout (milliseconds)",
+        "failOnHttpError": "Fail the step on HTTP 4xx/5xx"
       },
       "short": "HTTP request"
     },
@@ -138,6 +150,46 @@
         }
       },
       "short": "Filter"
+    },
+    "schedule": {
+      "name": "Schedule",
+      "badge": "SCHEDULE",
+      "description": "Runs the workflow on a cron schedule (UTC) once it is published.",
+      "defaultLabel": "Scheduled Run",
+      "short": "Schedule",
+      "fields": {
+        "cron": "Cron expression (UTC)",
+        "cronHint": "minute hour day month weekday — e.g. 0 9 * * 1-5 runs weekdays at 09:00 UTC.",
+        "payload": "Payload passed to the run (JSON)"
+      },
+      "presets": {
+        "every15": "Every 15 min",
+        "hourly": "Hourly",
+        "weekdays": "Weekdays 09:00",
+        "daily": "Daily 00:00"
+      }
+    },
+    "transform": {
+      "name": "Transform Data",
+      "badge": "TRANSFORM",
+      "description": "Builds a new JSON object from trigger and step data using '{{variables}}' — no code required.",
+      "defaultLabel": "Map Fields",
+      "short": "Transform",
+      "fields": {
+        "template": "Output template (JSON)",
+        "templateHint": "Use '{{trigger.body.x}}' or '{{steps.<id>.output.y}}'. Downstream steps read the result as '{{steps.<this step id>.output.<field>}}'."
+      }
+    },
+    "delay": {
+      "name": "Delay",
+      "badge": "DELAY",
+      "description": "Waits a fixed time before continuing (up to 30 seconds, within the plan's run limit).",
+      "defaultLabel": "Wait",
+      "short": "Delay",
+      "fields": {
+        "durationMs": "Wait time (milliseconds)",
+        "durationHint": "0–30,000 ms."
+      }
     }
   },
   "validation": {
@@ -209,7 +261,9 @@
       "overview": "Plan & usage",
       "team": "Team",
       "security": "Security",
-      "permissions": "Permissions"
+      "permissions": "Permissions",
+      "account": "Account",
+      "audit": "Audit log"
     },
     "plan": "{tier} plan",
     "unlimited": "Unlimited",
@@ -252,7 +306,7 @@
       "rateLimit": {
         "title": "Tenant rate limiting",
         "body": "Ingestion routes use a token bucket per IP and workspace. Bursts over capacity get HTTP 429 with Retry-After.",
-        "status": "60 req/min"
+        "status": "Active"
       }
     },
     "permissionsTitle": "Role permissions",
@@ -297,6 +351,92 @@
       "workspaceManage": {
         "label": "Manage workspace",
         "description": "Quotas, plan and member access"
+      },
+      "memberManage": {
+        "label": "Manage members",
+        "description": "Invite people, change roles and remove members."
+      },
+      "auditView": {
+        "label": "View audit log",
+        "description": "See who changed workflows, credentials and members."
+      }
+    },
+    "team": {
+      "inviteTitle": "Invite a teammate",
+      "inviteHint": "We'll generate a one-time invite link (valid for 7 days) that you can share with them.",
+      "email": "Email",
+      "role": "Role",
+      "sendInvite": "Create invite",
+      "linkReady": "Invite link for {email}",
+      "copyLink": "Copy link",
+      "membersTitle": "Members ({count})",
+      "membersHint": "People with access to this workspace.",
+      "you": "You",
+      "demo": "Demo",
+      "changeRole": "Change role for {name}",
+      "remove": "Remove {name}",
+      "assumeRole": "Assume role",
+      "pendingTitle": "Pending invitations ({count})",
+      "pendingHint": "Invites that haven't been accepted yet.",
+      "expires": "expires <time></time>",
+      "revoke": "Revoke",
+      "removeTitle": "Remove {name}?",
+      "removeBody": "They will immediately lose access to this workspace's workflows, runs and credentials.",
+      "removeConfirm": "Remove member",
+      "failed": "Something went wrong. Please try again.",
+      "invited": "Invite created for {email}.",
+      "roleChanged": "{name} is now {role}.",
+      "removed": "{name} was removed.",
+      "revoked": "Invitation for {email} revoked."
+    },
+    "accountTab": {
+      "demoReadOnly": "Demo accounts are shared, so their profile and password can't be changed.",
+      "profileTitle": "Profile",
+      "name": "Display name",
+      "email": "Email",
+      "saveProfile": "Save profile",
+      "passwordTitle": "Password",
+      "passwordHint": "Changing your password signs you out on every other device.",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm new password",
+      "tooShort": "At least {min} characters.",
+      "mismatch": "Passwords don't match.",
+      "changePassword": "Change password",
+      "sessionsTitle": "Sessions",
+      "sessionsHint": "Sign out of NexusFlow on all browsers and devices, including this one.",
+      "signOutEverywhere": "Sign out everywhere",
+      "signOutConfirm": "Every active session for your account will be ended immediately.",
+      "profileSaved": "Profile updated.",
+      "passwordChanged": "Password changed. Other sessions were signed out.",
+      "failed": "Something went wrong. Please try again."
+    },
+    "audit": {
+      "title": "Audit log",
+      "hint": "Who did what in this workspace (most recent first).",
+      "search": "Filter events",
+      "empty": "No events yet",
+      "system": "System",
+      "actions": {
+        "auth_login": "signed in",
+        "auth_logout": "signed out",
+        "auth_password_changed": "changed their password",
+        "auth_sessions_revoked": "signed out everywhere",
+        "workflow_saved": "saved workflow",
+        "workflow_published": "published workflow",
+        "workflow_status_changed": "changed status of workflow",
+        "workflow_duplicated": "duplicated workflow",
+        "workflow_deleted": "deleted workflow",
+        "workflow_executed": "started run",
+        "execution_retried": "retried run",
+        "credential_created": "created credential",
+        "credential_rotated": "rotated credential",
+        "credential_deleted": "deleted credential",
+        "member_invited": "invited a member",
+        "member_invitation_revoked": "revoked an invitation",
+        "member_joined": "joined the workspace",
+        "member_role_changed": "changed the role of",
+        "member_removed": "removed member"
       }
     }
   },
@@ -356,7 +496,8 @@
       "viewer": "Viewer"
     },
     "freeTier": "Free tier included",
-    "freeTierHint": "DAG engine, encrypted vault and queue workers."
+    "freeTierHint": "DAG engine, encrypted vault and queue workers.",
+    "inviteBanner": "You've been invited to join {workspace}. Sign in or create an account to accept."
   },
   "ui": {
     "copy": "Copy",
@@ -380,7 +521,8 @@
     "FAILED": "Failed",
     "DRAFT": "Draft",
     "PUBLISHED": "Published",
-    "DISABLED": "Disabled"
+    "DISABLED": "Disabled",
+    "SKIPPED": "Skipped"
   },
   "nav": {
     "main": "Main navigation",
@@ -436,7 +578,9 @@
     "switchAccount": "Switch account",
     "roleSwitched": "Switched to {role} ({name})",
     "roleSwitchFailed": "Couldn't switch role.",
-    "signedOut": "Signed out."
+    "signedOut": "Signed out.",
+    "switchWorkspace": "Switch workspace",
+    "workspaceSwitchFailed": "Couldn't switch workspace."
   },
   "dashboard": {
     "metaTitle": "Workflows",
@@ -633,7 +777,18 @@
       "submit": "Encrypt & save",
       "created": "{name} encrypted and stored.",
       "failed": "Couldn't save credential."
-    }
+    },
+    "noAccess": "Your role can't view vault credentials. Ask an owner or admin for access.",
+    "rotated": "rotated <time></time>",
+    "rotate": "Rotate secret",
+    "rotateNamed": "Rotate {name}",
+    "rotateTitle": "Rotate {name}",
+    "rotateDescription": "Replace the stored value. Workflows referencing this credential use the new value on their next run.",
+    "newValue": "New secret value",
+    "showValue": "Show value",
+    "hideValue": "Hide value",
+    "rotateFailed": "Couldn't rotate the credential.",
+    "rotatedToast": "{name} rotated."
   },
   "errors": {
     "notFoundTitle": "Page not found",
@@ -767,7 +922,10 @@
       "importConfirm": "Import",
       "leaveTitle": "Discard unsaved changes?",
       "leaveBody": "You have changes that haven't been saved yet.",
-      "leaveConfirm": "Discard & leave"
+      "leaveConfirm": "Discard & leave",
+      "deleteTitle": "Delete this workflow?",
+      "deleteBody": "\"{name}\" and its entire run history will be permanently deleted.",
+      "deleteConfirm": "Delete workflow"
     },
     "tip": {
       "mobile": "Tip: pinch to zoom and tap a step to edit it. Larger screens give you the full editor.",
@@ -803,7 +961,12 @@
       "streamConnecting": "Connecting to live stream for {id}…",
       "executionId": "Execution ID: {id}",
       "publishFailed": "Couldn't publish workflow",
-      "dispatchFailed": "Dispatch failed"
+      "dispatchFailed": "Dispatch failed",
+      "statusFailed": "Couldn't change the workflow status.",
+      "workflowDisabled": "Workflow disabled — webhooks and schedules are paused.",
+      "workflowEnabled": "Workflow enabled.",
+      "deleteFailed": "Couldn't delete the workflow.",
+      "workflowDeleted": "Workflow deleted."
     },
     "runPanel": {
       "title": "Run timeline",
@@ -815,6 +978,39 @@
       "clear": "Clear",
       "collapse": "Collapse timeline",
       "expand": "Expand timeline"
-    }
+    },
+    "enableWorkflow": "Enable workflow",
+    "disableWorkflow": "Disable workflow",
+    "deleteWorkflow": "Delete workflow"
+  },
+  "workflowActions": {
+    "menu": "Actions for {name}",
+    "open": "Open in editor",
+    "duplicate": "Duplicate",
+    "enable": "Enable",
+    "disable": "Disable",
+    "delete": "Delete",
+    "failed": "Something went wrong. Please try again.",
+    "duplicated": "Workflow duplicated.",
+    "disabled": "Workflow disabled.",
+    "enabled": "Workflow enabled.",
+    "deleted": "\"{name}\" deleted.",
+    "confirmTitle": "Delete this workflow?",
+    "confirmBody": "\"{name}\" and its entire run history will be permanently deleted."
+  },
+  "invite": {
+    "metaTitle": "Workspace invitation",
+    "invalidTitle": "This invitation can't be used",
+    "invalidBody": "The link is invalid, was revoked, or has expired. Ask the person who invited you for a new one.",
+    "goToLogin": "Go to sign in",
+    "title": "Join {workspace}",
+    "body": "This invitation is for {email} with the {role} role.",
+    "wrongAccount": "You're signed in as {current}, but this invite is for {email}.",
+    "switchAccount": "Sign in with another account",
+    "signInToAccept": "Sign in to accept",
+    "createAccount": "Create an account",
+    "accept": "Accept invitation",
+    "accepted": "Welcome aboard! You joined the workspace.",
+    "failed": "Couldn't accept the invitation."
   }
 }

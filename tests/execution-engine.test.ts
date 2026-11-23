@@ -6,24 +6,24 @@ import {
   setExecutionDbAvailability,
 } from "@/lib/services/execution-service";
 import { DAGNode, DAGEdge } from "@/lib/dag/types";
+import { setHttpTransportForTesting } from "@/lib/security/safe-fetch";
 
 describe("DAG Workflow Execution Engine", () => {
   beforeEach(() => {
     setExecutionDbAvailability(false);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        status: 200,
-        ok: true,
-        statusText: "OK",
-        headers: new Headers({ "content-type": "application/json" }),
-        json: async () => ({ success: true, processed: true }),
-      })
+    setHttpTransportForTesting(
+      vi.fn().mockImplementation(
+        async () =>
+          new Response(JSON.stringify({ success: true, processed: true }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          })
+      )
     );
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    setHttpTransportForTesting(null);
   });
 
   it("should execute a linear DAG successfully in topological order", async () => {
@@ -169,7 +169,7 @@ describe("DAG Workflow Execution Engine", () => {
       (s) => s.nodeId === "node_downstream_action"
     );
     expect(downstreamStep).toBeDefined();
-    expect(downstreamStep?.status).toBe("FAILED");
+    expect(downstreamStep?.status).toBe("SKIPPED");
     expect(downstreamStep?.errorMessage).toContain(
       "Skipped: Upstream conditional filter evaluated to false"
     );

@@ -1,6 +1,9 @@
-export type WorkflowNodeType = "trigger" | "webhook" | "action" | "filter";
+export type WorkflowNodeType = "trigger" | "webhook" | "schedule" | "action" | "transform" | "delay" | "filter";
 
-export type ExecutionState = "PENDING" | "RUNNING" | "SUCCESS" | "FAILED";
+/** Node types that start a workflow (no inbound edges). */
+export const TRIGGER_NODE_TYPES: WorkflowNodeType[] = ["trigger", "webhook", "schedule"];
+
+export type ExecutionState = "PENDING" | "RUNNING" | "SUCCESS" | "FAILED" | "SKIPPED";
 
 export interface NodeData {
   label: string;

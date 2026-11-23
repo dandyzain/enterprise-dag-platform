@@ -90,7 +90,20 @@ function PasswordInput({
   );
 }
 
-export function LoginForm() {
+/** Only same-site relative paths are allowed as post-login destinations (no open redirects). */
+function safeNextPath(raw: string | null, locale: string): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return `/${locale}`;
+  return raw.startsWith(`/${locale}/`) || raw === `/${locale}` ? raw : `/${locale}${raw}`;
+}
+
+export interface LoginFormProps {
+  demoMode: boolean;
+  inviteToken?: string;
+  inviteEmail?: string;
+  inviteWorkspace?: string;
+}
+
+export function LoginForm({ demoMode, inviteToken, inviteEmail, inviteWorkspace }: LoginFormProps) {
   const searchParams = useSearchParams();
   const locale = useLocale();
   const t = useTranslations("auth");
@@ -107,13 +120,15 @@ export function LoginForm() {
   const [isPending, startTransition] = useTransition();
   const [redirecting, setRedirecting] = useState(false);
 
-  // Login form state (demo credentials prefilled, as before)
-  const [loginEmail, setLoginEmail] = useState("admin@enterprise.io");
-  const [loginPassword, setLoginPassword] = useState("Password123!");
+  const nextPath = safeNextPath(searchParams.get("next"), locale);
+
+  // Login form state (demo credentials prefilled only in demo mode)
+  const [loginEmail, setLoginEmail] = useState(inviteEmail ?? (demoMode ? "admin@enterprise.io" : ""));
+  const [loginPassword, setLoginPassword] = useState(demoMode && !inviteEmail ? "Password123!" : "");
 
   // Register form state
   const [registerName, setRegisterName] = useState("");
-  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerEmail, setRegisterEmail] = useState(inviteEmail ?? "");
   const [registerWorkspace, setRegisterWorkspace] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerSubmitted, setRegisterSubmitted] = useState(false);
@@ -135,6 +150,7 @@ export function LoginForm() {
     const formData = new FormData();
     formData.append("email", loginEmail);
     formData.append("password", loginPassword);
+    if (inviteToken) formData.append("invite", inviteToken);
 
     startTransition(async () => {
       try {
@@ -142,7 +158,7 @@ export function LoginForm() {
         if (res.success && res.session) {
           setRedirecting(true);
           toast.success(t("welcomeBack", { name: res.session.name }));
-          window.location.href = `/${locale}`;
+          window.location.href = nextPath;
         } else {
           toast.error(res.error || t("authFailed"));
         }
@@ -170,6 +186,7 @@ export function LoginForm() {
     formData.append("email", registerEmail.trim());
     formData.append("workspaceName", registerWorkspace.trim() || "My Team Workspace");
     formData.append("password", registerPassword);
+    if (inviteToken) formData.append("invite", inviteToken);
 
     startTransition(async () => {
       try {
@@ -177,7 +194,7 @@ export function LoginForm() {
         if (res.success && res.session) {
           setRedirecting(true);
           toast.success(t("accountCreated", { workspace: res.session.workspaceName }));
-          window.location.href = `/${locale}`;
+          window.location.href = nextPath;
         } else {
           toast.error(res.error || t("authFailed"));
         }
@@ -202,6 +219,11 @@ export function LoginForm() {
         <p className="text-pretty text-sm leading-6 text-fg-muted">
           {mode === "login" ? t("signInSubtitle") : t("registerSubtitle")}
         </p>
+        {inviteWorkspace && (
+          <p role="status" className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-[13px] text-fg">
+            {t("inviteBanner", { workspace: inviteWorkspace })}
+          </p>
+        )}
       </div>
 
       <Tabs value={mode} onValueChange={(v) => setMode(v as "login" | "register")}>
@@ -238,6 +260,7 @@ export function LoginForm() {
               {!busy && <ArrowRight aria-hidden />}
             </Button>
 
+            {demoMode && (
             <div className="space-y-3 pt-3">
               <div className="flex items-center gap-3 text-xs text-fg-subtle">
                 <span className="h-px flex-1 bg-line" />
@@ -267,6 +290,7 @@ export function LoginForm() {
                 })}
               </div>
             </div>
+            )}
 
             <p className="pt-2 text-center text-[13px] text-fg-muted">
               {t("noAccountPrompt")}{" "}
