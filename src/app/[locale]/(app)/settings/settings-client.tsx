@@ -2,8 +2,7 @@
 
 import React from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Building2, Check, KeyRound, Lock, Minus, Server, ShieldCheck, Users, Zap, Gauge, Clock, Timer } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Building2, Check, KeyRound, Lock, Minus, Server, ShieldCheck, Users, Zap, Gauge, Clock, Timer, UserRound, ScrollText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/misc";
 import { Segmented } from "@/components/ui/segmented";
@@ -13,17 +12,26 @@ import { Meter } from "@/components/patterns/meter";
 import type { SessionUser } from "@/lib/services/auth-service";
 import { MemberRole, WorkspaceLimits, hasPermission, Permission } from "@/lib/auth/rbac";
 import { DEMO_PERSONAS, useAccountActions, type DemoEmail } from "@/components/shell/use-account-actions";
-import { cn, formatCompact, formatDuration, getInitials, splitNameTitle } from "@/lib/utils";
+import { cn, formatCompact, formatDuration } from "@/lib/utils";
+import { TeamPanel, type InvitationItem, type MemberItem } from "./team-panel";
+import { AccountPanel } from "./account-panel";
+import { AuditPanel, type AuditItem } from "./audit-panel";
 
-export type SettingsTab = "overview" | "team" | "security" | "permissions";
+import type { SettingsTab } from "./tabs";
+
+export type { SettingsTab };
 
 interface SettingsClientProps {
   session: SessionUser;
+  demoMode: boolean;
+  isDemoPersona: boolean;
   activeWorkflowsCount: number;
-  totalExecutionsCount: number;
+  executionsThisMonth: number;
   tierLimits: WorkspaceLimits;
   retentionDays: number;
-  roster: { email: string; name: string; role: MemberRole }[];
+  members: MemberItem[];
+  invitations: InvitationItem[];
+  audit: AuditItem[];
   initialTab: SettingsTab;
 }
 
@@ -36,6 +44,8 @@ const PERMISSIONS: { key: Permission; i18n: string }[] = [
   { key: "execution:retry", i18n: "executionRetry" },
   { key: "credential:create", i18n: "credentialCreate" },
   { key: "credential:view", i18n: "credentialView" },
+  { key: "member:manage", i18n: "memberManage" },
+  { key: "audit:view", i18n: "auditView" },
   { key: "workspace:manage", i18n: "workspaceManage" },
 ];
 
@@ -45,18 +55,24 @@ const SECURITY = [
   { key: "ssrf", icon: Server, live: true },
   { key: "vault", icon: KeyRound, live: true },
   { key: "signatures", icon: Lock, live: true },
-  { key: "rateLimit", icon: Zap, live: false },
+  { key: "rateLimit", icon: Zap, live: true },
 ] as const;
 
 export function SettingsClient({
   session,
+  demoMode,
+  isDemoPersona,
   activeWorkflowsCount,
-  totalExecutionsCount,
+  executionsThisMonth,
   tierLimits,
   retentionDays,
-  roster,
+  members,
+  invitations,
+  audit,
   initialTab,
 }: SettingsClientProps) {
+  const totalExecutionsCount = executionsThisMonth;
+  const canViewAudit = hasPermission(session.role, "audit:view");
   const t = useTranslations("settingsPage");
   const tAccount = useTranslations("account");
   const locale = useLocale();
@@ -93,7 +109,8 @@ export function SettingsClient({
         description={t("subtitle")}
       />
 
-      {/* Persona switcher (demo) */}
+      {/* Persona switcher (demo mode, demo personas only) */}
+      {demoMode && isDemoPersona && (
       <div className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4 shadow-elev-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-fg">{t("persona")}</p>
@@ -108,6 +125,7 @@ export function SettingsClient({
           layoutId="persona-pill"
         />
       </div>
+      )}
 
       <Tabs value={tab} onValueChange={changeTab} className="space-y-6">
         <TabsList aria-label={t("title")}>
@@ -117,12 +135,20 @@ export function SettingsClient({
           <TabsTrigger value="team">
             <Users aria-hidden /> {t("tabs.team")}
           </TabsTrigger>
+          <TabsTrigger value="account">
+            <UserRound aria-hidden /> {t("tabs.account")}
+          </TabsTrigger>
           <TabsTrigger value="security">
             <ShieldCheck aria-hidden /> {t("tabs.security")}
           </TabsTrigger>
           <TabsTrigger value="permissions">
             <Lock aria-hidden /> {t("tabs.permissions")}
           </TabsTrigger>
+          {canViewAudit && (
+            <TabsTrigger value="audit">
+              <ScrollText aria-hidden /> {t("tabs.audit")}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Plan & usage */}
@@ -200,54 +226,19 @@ export function SettingsClient({
 
         {/* Team */}
         <TabsContent value="team">
-          <Card className="overflow-hidden">
-            <CardHeader>
-              <div>
-                <CardTitle>{t("teamMembers")}</CardTitle>
-                <CardDescription>{t("teamHint")}</CardDescription>
-              </div>
-            </CardHeader>
-            <ul className="divide-y divide-line">
-              {roster.map((member) => {
-                const isCurrent = session.email === member.email;
-                const { name, title } = splitNameTitle(member.name);
-                return (
-                  <li
-                    key={member.email}
-                    className={cn("flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center", isCurrent && "bg-surface-2/50")}
-                  >
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-3 text-xs font-semibold text-fg">
-                        {getInitials(member.name)}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="flex items-center gap-2 truncate text-sm font-medium text-fg">
-                          {name}
-                          {isCurrent && <Badge variant="accent">{t("you")}</Badge>}
-                        </p>
-                        <p className="truncate text-xs text-fg-subtle">
-                          {title ? `${title} · ` : ""}
-                          {member.email}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 pl-12 sm:pl-0">
-                      <Badge variant="neutral">{tAccount(`roles.${member.role}`)}</Badge>
-                      <Button
-                        variant="secondary"
-                        size="xs"
-                        disabled={isCurrent || isPending}
-                        onClick={() => switchRole(member.email as DemoEmail)}
-                      >
-                        {t("assumeRole")}
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
+          <TeamPanel session={session} members={members} invitations={invitations} demoMode={demoMode} />
         </TabsContent>
+
+        {/* Account */}
+        <TabsContent value="account">
+          <AccountPanel session={session} isDemoPersona={isDemoPersona} />
+        </TabsContent>
+
+        {canViewAudit && (
+          <TabsContent value="audit">
+            <AuditPanel entries={audit} />
+          </TabsContent>
+        )}
 
         {/* Security */}
         <TabsContent value="security" className="space-y-4">

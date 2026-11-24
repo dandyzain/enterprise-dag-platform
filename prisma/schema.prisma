@@ -18,6 +18,7 @@ enum ExecutionStatus {
   RUNNING
   SUCCESS
   FAILED
+  SKIPPED
 }
 
 enum WorkspaceTier {
@@ -39,6 +40,8 @@ model User {
   name         String?
   passwordHash String?
   salt         String?
+  /// Tokens issued before this instant are rejected ("sign out everywhere", password change).
+  sessionsRevokedAt DateTime?
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @default(now()) @updatedAt
   workflows    Workflow[]
@@ -58,6 +61,8 @@ model Workspace {
   members     WorkspaceMember[]
   workflows   Workflow[]
   credentials Credential[]
+  invitations Invitation[]
+  auditLogs   AuditLog[]
 
   @@map("workspaces")
 }
@@ -112,6 +117,7 @@ model WorkflowExecution {
 
   @@index([workflowId])
   @@index([status])
+  @@index([startedAt])
   @@map("workflow_executions")
 }
 
@@ -143,8 +149,42 @@ model Credential {
   encryptedData String
   iv            String
   createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @default(now()) @updatedAt
 
   @@index([userId])
   @@index([workspaceId])
   @@map("credentials")
+}
+
+model Invitation {
+  id          String     @id @default(uuid())
+  workspaceId String
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  email       String
+  role        MemberRole @default(MEMBER)
+  /// SHA-256 of the invite token; the raw token is only shown once to the inviter.
+  tokenHash   String     @unique
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime   @default(now())
+
+  @@index([workspaceId])
+  @@map("invitations")
+}
+
+model AuditLog {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actorId     String?
+  actorEmail  String?
+  action      String
+  targetType  String?
+  targetId    String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("audit_logs")
 }

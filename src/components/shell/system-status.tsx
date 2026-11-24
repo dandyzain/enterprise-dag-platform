@@ -19,8 +19,7 @@ export function SystemStatus({ collapsed = false }: { collapsed?: boolean }) {
         const res = await fetch("/api/health", { cache: "no-store" });
         const json = await res.json();
         if (cancelled) return;
-        const db = json?.checks?.database?.status;
-        setState(res.ok && json?.status === "healthy" ? (db === "connected" ? "operational" : "degraded") : "offline");
+        setState(!res.ok ? "offline" : json?.status === "healthy" ? "operational" : "degraded");
       } catch {
         if (!cancelled) setState("offline");
       }

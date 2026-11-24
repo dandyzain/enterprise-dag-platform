@@ -19,6 +19,7 @@ import type { SessionUser } from "@/lib/services/auth-service";
 import { NAV_ITEMS } from "./nav-config";
 import { useShell } from "./shell-context";
 import { DEMO_PERSONAS, useAccountActions } from "./use-account-actions";
+import { useAccount } from "./account-context";
 
 export interface CommandWorkflow {
   id: string;
@@ -44,6 +45,8 @@ export function CommandMenu({ session, workflows }: { session: SessionUser | nul
   const locale = useLocale();
   const { setTheme } = useTheme();
   const { switchRole, signOut } = useAccountActions();
+  const { demoMode } = useAccount();
+  const isDemoPersona = Boolean(session && DEMO_PERSONAS.some((p) => p.email === session.email));
 
   React.useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -137,7 +140,7 @@ export function CommandMenu({ session, workflows }: { session: SessionUser | nul
         {session && (
           <>
             <CommandGroup heading={t("groups.account")}>
-              {DEMO_PERSONAS.filter((p) => p.email !== session.email).map((p) => (
+              {demoMode && isDemoPersona && DEMO_PERSONAS.filter((p) => p.email !== session.email).map((p) => (
                 <CommandItem key={p.email} value={`role ${p.role} ${p.email}`} onSelect={() => run(() => switchRole(p.email))}>
                   <UserCog aria-hidden />
                   {t("switchRole", { role: tAccount(`roles.${p.role}`) })}

@@ -1,6 +1,7 @@
 import { Queue } from "bullmq";
 import { getRedisOptions, checkRedisHealth } from "./redis";
 import { ExecutionJobData, executeDAGWorkflow } from "./workflow-executor";
+import { logger } from "@/lib/logger";
 
 export const QUEUE_NAME = "enterprise-dag-execution";
 
@@ -17,8 +18,8 @@ export function getWorkflowQueue(): Queue<ExecutionJobData> | null {
             type: "exponential",
             delay: 1000,
           },
-          removeOnComplete: true,
-          removeOnFail: false,
+          removeOnComplete: { count: 1000 },
+          removeOnFail: { age: 7 * 24 * 3600 },
         },
       });
     }
@@ -54,15 +55,15 @@ export async function enqueueWorkflowJob(jobData: ExecutionJobData): Promise<{
           jobId: job.id || jobData.executionId,
         };
       }
-    } catch {
-      // Redis error during add, fall back to async worker
+    } catch (err) {
+      logger.warn("BullMQ enqueue failed; running the job in-process", { executionId: jobData.executionId, err });
     }
   }
 
   // Non-blocking in-memory execution via microtask
   setImmediate(() => {
     executeDAGWorkflow(jobData).catch((err) => {
-      console.error("[In-Memory Worker] Background execution error:", err);
+      logger.error("In-process execution crashed", { executionId: jobData.executionId, err });
     });
   });
 
@@ -71,4 +72,19 @@ export async function enqueueWorkflowJob(jobData: ExecutionJobData): Promise<{
     mode: "in-memory-worker",
     jobId: jobData.executionId,
   };
+}
+
+/** Jobs waiting or delayed in BullMQ (null when the queue is unavailable). */
+export async function getQueueDepth(): Promise<number | null> {
+  try {
+    const queue = getWorkflowQueue();
+    if (!queue) return null;
+    const counts = await Promise.race([
+      queue.getJobCounts("waiting", "delayed", "active"),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 1000)),
+    ]);
+    return (counts.waiting ?? 0) + (counts.delayed ?? 0) + (counts.active ?? 0);
+  } catch {
+    return null;
+  }
 }

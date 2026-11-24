@@ -20,7 +20,10 @@ const badgeVariants = cva(
         warning: "border-line bg-surface-2 text-fg-muted",
         trigger: "border-line bg-surface-2 text-fg-muted",
         webhook: "border-line bg-surface-2 text-fg-muted",
+        schedule: "border-line bg-surface-2 text-fg-muted",
         action: "border-line bg-surface-2 text-fg-muted",
+        transform: "border-line bg-surface-2 text-fg-muted",
+        delay: "border-line bg-surface-2 text-fg-muted",
         filter: "border-line bg-surface-2 text-fg-muted",
         /* legacy alias */
         default: "border-accent/25 bg-accent/10 text-accent",
@@ -39,7 +42,10 @@ const DOT_COLOR: Partial<Record<NonNullable<BadgeProps["variant"]>, string>> = {
   warning: "bg-warning",
   trigger: "bg-node-trigger",
   webhook: "bg-node-webhook",
+  schedule: "bg-node-schedule",
   action: "bg-node-action",
+  transform: "bg-node-transform",
+  delay: "bg-node-delay",
   filter: "bg-node-filter",
 };
 

@@ -84,6 +84,7 @@ export default async function DashboardPage() {
     <PageContainer>
       <DashboardClient
         userName={session?.name ?? null}
+        role={session?.role ?? "VIEWER"}
         workflows={workflowItems}
         recentRuns={recentRuns}
         metrics={metrics}

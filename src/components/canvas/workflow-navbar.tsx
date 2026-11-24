@@ -17,11 +17,13 @@ import {
   LayoutGrid,
   Loader2,
   MoreHorizontal,
+  Pause,
   Pencil,
   Play,
   Radio,
   Rocket,
   Save,
+  Trash2,
   Upload,
   Workflow as WorkflowIcon,
   Zap,
@@ -78,6 +80,8 @@ interface WorkflowNavbarProps {
   onImportJSON?: () => void;
   onSelectTemplate?: (templateId: string) => void;
   onOpenShortcuts: () => void;
+  onToggleEnabled?: () => void;
+  onDeleteWorkflow?: () => void;
 }
 
 function SaveIndicator({ state }: { state: SaveState }) {
@@ -131,6 +135,8 @@ export function WorkflowNavbar({
   onImportJSON,
   onSelectTemplate,
   onOpenShortcuts,
+  onToggleEnabled,
+  onDeleteWorkflow,
 }: WorkflowNavbarProps) {
   const t = useTranslations("editor");
   const [isEditingName, setIsEditingName] = useState(false);
@@ -139,6 +145,7 @@ export function WorkflowNavbar({
 
   const canEdit = session ? hasPermission(session.role, "workflow:edit") : true;
   const canPublish = session ? hasPermission(session.role, "workflow:publish") : true;
+  const canDelete = session ? hasPermission(session.role, "workflow:delete") : false;
   const runDisabled = isExecuting || isSaving || hasCycleError;
 
   useEffect(() => {
@@ -319,6 +326,20 @@ export function WorkflowNavbar({
               <Keyboard aria-hidden /> {t("shortcuts")}
               <DropdownMenuShortcut>?</DropdownMenuShortcut>
             </DropdownMenuItem>
+            {((onToggleEnabled && canPublish && workflowStatus !== "DRAFT") || (onDeleteWorkflow && canDelete)) && (
+              <DropdownMenuSeparator />
+            )}
+            {onToggleEnabled && canPublish && workflowStatus !== "DRAFT" && (
+              <DropdownMenuItem onSelect={onToggleEnabled}>
+                {workflowStatus === "DISABLED" ? <Play aria-hidden /> : <Pause aria-hidden />}
+                {workflowStatus === "DISABLED" ? t("enableWorkflow") : t("disableWorkflow")}
+              </DropdownMenuItem>
+            )}
+            {onDeleteWorkflow && canDelete && (
+              <DropdownMenuItem tone="danger" onSelect={onDeleteWorkflow}>
+                <Trash2 aria-hidden /> {t("deleteWorkflow")}
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 

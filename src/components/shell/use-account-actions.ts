@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { switchDemoRoleAction, logoutAction } from "@/lib/actions/auth-actions";
+import { switchDemoRoleAction, switchWorkspaceAction, logoutAction } from "@/lib/actions/auth-actions";
 
 export type DemoEmail = "admin@enterprise.io" | "editor@enterprise.io" | "viewer@enterprise.io";
 
@@ -23,11 +23,26 @@ export function useAccountActions() {
     startTransition(async () => {
       try {
         const res = await switchDemoRoleAction(email);
+        if (!res.success || !res.session) {
+          toast.error(res.error || t("roleSwitchFailed"));
+          return;
+        }
         toast.success(t("roleSwitched", { role: t(`roles.${res.session.role}`), name: res.session.name }));
         window.location.reload();
       } catch {
         toast.error(t("roleSwitchFailed"));
       }
+    });
+  }
+
+  function switchWorkspace(workspaceId: string) {
+    startTransition(async () => {
+      const res = await switchWorkspaceAction(workspaceId);
+      if (!res.success) {
+        toast.error(res.error || t("workspaceSwitchFailed"));
+        return;
+      }
+      window.location.href = `/${locale}`;
     });
   }
 
@@ -39,5 +54,5 @@ export function useAccountActions() {
     });
   }
 
-  return { isPending, switchRole, signOut };
+  return { isPending, switchRole, switchWorkspace, signOut };
 }

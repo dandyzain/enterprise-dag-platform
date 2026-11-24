@@ -37,7 +37,7 @@ import { RunPanel, type RunLog } from "./run-panel";
 import { ShortcutsDialog } from "./shortcuts-dialog";
 import { CanvasUIProvider, type NodeAction } from "./canvas-context";
 import { useCanvasHistory } from "./hooks/use-canvas-history";
-import { NODE_META, asNodeType, defaultConfig } from "./node-meta";
+import { NODE_META, STEP_NODE_TYPES, asNodeType, defaultConfig } from "./node-meta";
 import { DAGNode, DAGEdge, NodeData, WorkflowNodeType } from "@/lib/dag/types";
 import { validateDAG } from "@/lib/dag/cycle-detection";
 import { getTopologicalOrder } from "@/lib/dag/topological-sort";
@@ -49,6 +49,8 @@ import {
   publishWorkflowAction,
   triggerWorkflowExecutionAction,
   getSingleExecutionAction,
+  setWorkflowStatusAction,
+  deleteWorkflowAction,
 } from "@/lib/actions/workflow-actions";
 import { listCredentialsAction } from "@/lib/actions/credential-actions";
 import { ExecutionHistoryModal } from "./execution-history-modal";
@@ -192,6 +194,7 @@ function WorkflowCanvasInner({
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isWebhookModalOpen, setIsWebhookModalOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("configure");
   const [isPaletteCollapsed, setIsPaletteCollapsed] = useState(false);
@@ -478,7 +481,7 @@ function WorkflowCanvasInner({
 
   const pickerAllowed: WorkflowNodeType[] | undefined =
     picker && (picker.intent.kind === "insert" || (picker.intent.kind === "connect" && picker.intent.fromHandle === "source"))
-      ? ["action", "filter"]
+      ? STEP_NODE_TYPES
       : undefined;
 
   // ---- Execution state helpers ------------------------------------------------
@@ -583,6 +586,29 @@ function WorkflowCanvasInner({
       setIsPublishing(false);
     }
   }, [dagValidation, handleSave, workflowId, tValidation, tToast]);
+
+  // ---- Enable / disable / delete ---------------------------------------------------
+  const handleToggleEnabled = useCallback(async () => {
+    const next = workflowStatus === "DISABLED" ? "PUBLISHED" : "DISABLED";
+    const res = await setWorkflowStatusAction(workflowId, next);
+    if (!res.success) {
+      toast.error(res.error || tToast("statusFailed"));
+      return;
+    }
+    setWorkflowStatus(next);
+    toast.success(next === "DISABLED" ? tToast("workflowDisabled") : tToast("workflowEnabled"));
+  }, [tToast, workflowId, workflowStatus]);
+
+  const handleDeleteWorkflow = useCallback(async () => {
+    const res = await deleteWorkflowAction(workflowId);
+    if (!res.success) {
+      toast.error(res.error || tToast("deleteFailed"));
+      return;
+    }
+    toast.success(tToast("workflowDeleted"));
+    setSavedSignature(signature);
+    router.push("/");
+  }, [router, signature, tToast, workflowId]);
 
   // ---- Replay a historical execution on the canvas -------------------------------
   const handleReplayExecution = useCallback(
@@ -1026,6 +1052,8 @@ function WorkflowCanvasInner({
           onImportJSON={handleImportJSON}
           onSelectTemplate={handleSelectTemplate}
           onOpenShortcuts={() => setShortcutsOpen(true)}
+          onToggleEnabled={isNew ? undefined : handleToggleEnabled}
+          onDeleteWorkflow={isNew ? undefined : () => setDeleteOpen(true)}
         />
 
         <div className="relative flex min-h-0 flex-1">
@@ -1216,6 +1244,17 @@ function WorkflowCanvasInner({
             if (pendingReplace) applyReplace(pendingReplace);
             setPendingReplace(null);
           }}
+        />
+
+        <ConfirmDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          tone="danger"
+          title={t("confirm.deleteTitle")}
+          description={t("confirm.deleteBody", { name: workflowName })}
+          confirmLabel={t("confirm.deleteConfirm")}
+          confirmText={workflowName}
+          onConfirm={handleDeleteWorkflow}
         />
 
         <ConfirmDialog

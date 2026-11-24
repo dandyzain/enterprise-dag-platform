@@ -15,9 +15,7 @@ const globalForLimiter = globalThis as unknown as {
 const buckets =
   globalForLimiter.rateLimitBucketsMap ?? new Map<string, Bucket>();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForLimiter.rateLimitBucketsMap = buckets;
-}
+globalForLimiter.rateLimitBucketsMap = buckets;
 
 export interface RateLimitOptions {
   maxRequests: number; // Max requests allowed within interval
@@ -31,11 +29,32 @@ export interface RateLimitResult {
   resetMs: number;
 }
 
+const MAX_BUCKETS = 50_000;
+const IDLE_EVICT_MS = 10 * 60_000;
+
+/** Keeps memory bounded when many distinct keys (e.g. spoofed IPs) are seen. */
+function pruneBuckets(now: number): void {
+  if (buckets.size < MAX_BUCKETS) return;
+  for (const [key, bucket] of buckets) {
+    if (now - bucket.lastRefillMs > IDLE_EVICT_MS) buckets.delete(key);
+  }
+  // Still too many active keys: drop the oldest insertions.
+  const excess = buckets.size - MAX_BUCKETS;
+  if (excess > 0) {
+    let removed = 0;
+    for (const key of buckets.keys()) {
+      buckets.delete(key);
+      if (++removed >= excess) break;
+    }
+  }
+}
+
 export function checkRateLimit(
   identifier: string,
   options: RateLimitOptions = { maxRequests: 60, windowMs: 60_000 }
 ): RateLimitResult {
   const now = Date.now();
+  pruneBuckets(now);
   const bucketKey = `rl:${identifier}`;
   let bucket = buckets.get(bucketKey);
 

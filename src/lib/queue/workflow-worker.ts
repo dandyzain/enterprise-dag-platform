@@ -2,6 +2,7 @@ import { Worker, Job } from "bullmq";
 import { getRedisOptions } from "./redis";
 import { QUEUE_NAME } from "./workflow-queue";
 import { ExecutionJobData, executeDAGWorkflow } from "./workflow-executor";
+import { logger } from "@/lib/logger";
 
 let workerInstance: Worker<ExecutionJobData> | null = null;
 
@@ -11,10 +12,12 @@ export function startWorkflowWorker(): Worker<ExecutionJobData> | null {
       workerInstance = new Worker<ExecutionJobData>(
         QUEUE_NAME,
         async (job: Job<ExecutionJobData>) => {
-          console.log(`[BullMQ Worker] Processing execution job ${job.id} for workflow ${job.data.workflowName}`);
+          logger.info("Processing execution job", { jobId: job.id, workflowId: job.data.workflowId, attempt: job.attemptsMade + 1 });
           const result = await executeDAGWorkflow(job.data);
-          if (!result.success) {
-            throw new Error(result.error || "DAG Execution failed");
+          // Step failures are part of the run's result and must not be retried
+          // (HTTP actions are not idempotent). Only engine/storage failures retry.
+          if (result.fatal) {
+            throw new Error(result.error || "DAG execution failed");
           }
           return result;
         },
@@ -24,18 +27,18 @@ export function startWorkflowWorker(): Worker<ExecutionJobData> | null {
         }
       );
 
-      workerInstance.on("completed", (job) => {
-        console.log(`[BullMQ Worker] Job ${job.id} completed successfully.`);
+      workerInstance.on("completed", (job, result) => {
+        logger.info("Execution job finished", { jobId: job.id, status: (result as { status?: string })?.status });
       });
 
       workerInstance.on("failed", (job, err) => {
-        console.error(`[BullMQ Worker] Job ${job?.id} failed:`, err);
+        logger.error("Execution job failed", { jobId: job?.id, err });
       });
     }
 
     return workerInstance;
   } catch (err) {
-    console.warn("[BullMQ Worker] Could not start worker process:", err);
+    logger.warn("Could not start BullMQ worker", { err });
     return null;
   }
 }

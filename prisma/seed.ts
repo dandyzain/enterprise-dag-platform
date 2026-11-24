@@ -1,24 +1,39 @@
 import { PrismaClient } from "@prisma/client";
 import { encryptData } from "../src/lib/crypto";
+import { DEMO_ACCOUNTS, DEMO_EMAILS, DEMO_WORKSPACE } from "../src/lib/auth/demo";
+import { buildDefaultDemoWorkflow } from "../src/lib/services/workflow-service";
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log("🌱 Starting enterprise DAG database seeding...");
 
-  // 1. Seed Default Principal Architect User
-  const user = await prisma.user.upsert({
-    where: { email: "admin@enterprise-dag.io" },
-    update: {
-      name: "Principal Architect",
-    },
-    create: {
-      id: "usr_principal_architect_01",
-      email: "admin@enterprise-dag.io",
-      name: "Principal Architect",
-    },
+  // 1. Demo workspace + the three demo personas (OWNER / MEMBER / VIEWER).
+  //    Demo users have no password in PostgreSQL: they can only sign in while
+  //    DEMO_MODE is enabled (they authenticate against the in-memory demo store).
+  await prisma.workspace.upsert({
+    where: { id: DEMO_WORKSPACE.id },
+    update: { name: DEMO_WORKSPACE.name, tier: DEMO_WORKSPACE.tier },
+    create: { id: DEMO_WORKSPACE.id, name: DEMO_WORKSPACE.name, slug: DEMO_WORKSPACE.slug, tier: DEMO_WORKSPACE.tier },
   });
-  console.log(`✓ User provisioned: ${user.name} (${user.email})`);
+
+  const demoUserIds: Record<string, string> = {};
+  for (const email of DEMO_EMAILS) {
+    const account = DEMO_ACCOUNTS[email];
+    const demoUser = await prisma.user.upsert({
+      where: { email },
+      update: { name: account.name },
+      create: { id: account.id, email, name: account.name },
+    });
+    demoUserIds[email] = demoUser.id;
+    await prisma.workspaceMember.upsert({
+      where: { workspaceId_userId: { workspaceId: DEMO_WORKSPACE.id, userId: demoUser.id } },
+      update: { role: account.role },
+      create: { workspaceId: DEMO_WORKSPACE.id, userId: demoUser.id, role: account.role },
+    });
+  }
+  const user = { id: demoUserIds["admin@enterprise.io"], name: DEMO_ACCOUNTS["admin@enterprise.io"].name };
+  console.log(`✓ Demo workspace provisioned: ${DEMO_WORKSPACE.name} (${DEMO_EMAILS.length} members)`);
 
   // 2. Seed Production Hardware-Vault Encrypted Credentials
   const credentialsToSeed = [
@@ -52,12 +67,14 @@ async function main() {
       update: {
         name: cred.name,
         type: cred.type,
+        workspaceId: DEMO_WORKSPACE.id,
         encryptedData: enc.encryptedData,
         iv: enc.iv,
       },
       create: {
         id: cred.id,
         userId: cred.userId,
+        workspaceId: DEMO_WORKSPACE.id,
         name: cred.name,
         type: cred.type,
         encryptedData: enc.encryptedData,
@@ -170,12 +187,14 @@ async function main() {
       name: "Customer Enrichment & Billing Pipeline",
       description: "Automated DAG pipeline orchestrating signup ingestion, KYC verification, and Stripe ledger syncing.",
       status: "PUBLISHED",
+      workspaceId: DEMO_WORKSPACE.id,
       nodes: customerEnrichmentNodes,
       edges: customerEnrichmentEdges,
     },
     create: {
       id: "wf_customer_enrichment",
       userId: user.id,
+      workspaceId: DEMO_WORKSPACE.id,
       name: "Customer Enrichment & Billing Pipeline",
       description: "Automated DAG pipeline orchestrating signup ingestion, KYC verification, and Stripe ledger syncing.",
       status: "PUBLISHED",
@@ -261,12 +280,14 @@ async function main() {
       description: "Distributed webhook ingestion validating risk score and committing transactions to ledger.",
       status: "PUBLISHED",
       webhookPath: "stripe-charge-hook",
+      workspaceId: DEMO_WORKSPACE.id,
       nodes: stripeWebhookNodes,
       edges: stripeWebhookEdges,
     },
     create: {
       id: "wf_stripe_ledger",
       userId: user.id,
+      workspaceId: DEMO_WORKSPACE.id,
       name: "Stripe Payment Ledger & Fraud Filter",
       description: "Distributed webhook ingestion validating risk score and committing transactions to ledger.",
       status: "PUBLISHED",
@@ -276,6 +297,24 @@ async function main() {
     },
   });
   console.log(`✓ Workflow created: ${wf2.name} [Webhook: /api/workflows/wh/${wf2.webhookPath}]`);
+
+  const demo = buildDefaultDemoWorkflow();
+  await prisma.workflow.upsert({
+    where: { id: demo.id },
+    update: { workspaceId: DEMO_WORKSPACE.id },
+    create: {
+      id: demo.id,
+      userId: user.id,
+      workspaceId: DEMO_WORKSPACE.id,
+      name: demo.name,
+      description: demo.description,
+      status: demo.status,
+      webhookPath: demo.webhookPath,
+      nodes: demo.nodes as unknown as object,
+      edges: demo.edges as unknown as object,
+    },
+  });
+  console.log(`✓ Workflow created: ${demo.name} [Webhook: /api/workflows/wh/${demo.webhookPath}]`);
 
   // 4. Seed Audit Execution History
   const exec1 = await prisma.workflowExecution.upsert({

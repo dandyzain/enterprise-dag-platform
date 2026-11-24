@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useCanvasUI } from "./canvas-context";
 
 export interface CustomEdgeData {
-  executionState?: "PENDING" | "RUNNING" | "SUCCESS" | "FAILED";
+  executionState?: "PENDING" | "RUNNING" | "SUCCESS" | "FAILED" | "SKIPPED";
   isAnimatedFlow?: boolean;
 }
 

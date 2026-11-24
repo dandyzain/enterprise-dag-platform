@@ -18,7 +18,7 @@ via `@theme inline`. Light/dark values are swapped by `next-themes`, which write
 | Text | `text-fg`, `text-fg-muted`, `text-fg-subtle` | `fg-subtle` keeps ≥ 4.5:1 on every surface |
 | Accent | `text-accent`, `bg-accent-solid`, `text-accent-solid-fg` | primary actions |
 | Status | `success`, `running`, `failed`, `warning` | always paired with an icon + label |
-| Node types | `node-trigger`, `node-webhook`, `node-action`, `node-filter` | identity in the editor and thumbnails |
+| Node types | `node-trigger`, `node-webhook`, `node-schedule`, `node-action`, `node-transform`, `node-delay`, `node-filter` | identity in the editor and thumbnails |
 | Signal | `bg-signal`, `text-signal` | live/active states only |
 | Elevation | `shadow-elev-1/2/3` | per-theme shadows |
 | Code | `text-code-string/number/literal` | JSON highlighting, contrast-safe |

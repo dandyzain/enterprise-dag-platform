@@ -6,7 +6,7 @@ export interface StreamStep {
   id?: string;
   nodeId: string;
   nodeType?: string;
-  status: "PENDING" | "RUNNING" | "SUCCESS" | "FAILED";
+  status: "PENDING" | "RUNNING" | "SUCCESS" | "FAILED" | "SKIPPED";
   durationMs?: number | null;
   errorMessage?: string | null;
   outputData?: unknown;

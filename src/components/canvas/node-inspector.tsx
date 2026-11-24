@@ -325,16 +325,116 @@ function InspectorBody({
                       />
                     </div>
                   </Field>
-                  <Field id={`${fid}-secret`} label={tNodes("webhook.fields.authHeader")}>
+                  <Field id={`${fid}-secret`} label={tNodes("webhook.fields.authHeader")} hint={tNodes("webhook.fields.authHeaderHint")}>
                     <Input
                       id={`${fid}-secret`}
+                      type="password"
+                      autoComplete="off"
                       className="font-mono"
                       value={String(config.secretHeader || "")}
                       onChange={(e) => handleConfigChange("secretHeader", e.target.value)}
-                      placeholder="X-Webhook-Secret-Key"
+                      placeholder={tNodes("webhook.fields.authHeaderPlaceholder")}
+                    />
+                  </Field>
+                  <Field id={`${fid}-sigp`} label={tNodes("webhook.fields.signatureProvider")}>
+                    <Select
+                      value={String(config.signatureProvider || "none")}
+                      onValueChange={(v) => handleConfigChange("signatureProvider", v)}
+                    >
+                      <SelectTrigger id={`${fid}-sigp`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(["none", "stripe", "github", "hmac"] as const).map((p) => (
+                          <SelectItem key={p} value={p}>
+                            {tNodes(`webhook.fields.providers.${p}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  {String(config.signatureProvider || "none") !== "none" && (
+                    <Field
+                      id={`${fid}-sigc`}
+                      label={tNodes("webhook.fields.signingSecretCredential")}
+                      hint={tNodes("webhook.fields.signingSecretHint")}
+                    >
+                      <Input
+                        id={`${fid}-sigc`}
+                        className="font-mono"
+                        value={String(config.signingSecretCredential || "")}
+                        onChange={(e) => handleConfigChange("signingSecretCredential", e.target.value.toUpperCase())}
+                        placeholder="STRIPE_WEBHOOK_SECRET"
+                        spellCheck={false}
+                      />
+                    </Field>
+                  )}
+                </>
+              )}
+
+              {nodeType === "schedule" && (
+                <>
+                  <Field id={`${fid}-cron`} label={tNodes("schedule.fields.cron")} hint={tNodes("schedule.fields.cronHint")}>
+                    <Input
+                      id={`${fid}-cron`}
+                      className="font-mono"
+                      value={String(config.cron || "")}
+                      onChange={(e) => handleConfigChange("cron", e.target.value)}
+                      placeholder="0 9 * * 1-5"
+                      spellCheck={false}
+                    />
+                  </Field>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      ["*/15 * * * *", "every15"],
+                      ["0 * * * *", "hourly"],
+                      ["0 9 * * 1-5", "weekdays"],
+                      ["0 0 * * *", "daily"],
+                    ] as const).map(([expr, key]) => (
+                      <Button key={expr} type="button" size="xs" variant="secondary" onClick={() => handleConfigChange("cron", expr)}>
+                        {tNodes(`schedule.presets.${key}`)}
+                      </Button>
+                    ))}
+                  </div>
+                  <Field id={`${fid}-spayload`} label={tNodes("schedule.fields.payload")}>
+                    <CodeField
+                      id={`${fid}-spayload`}
+                      value={config.payload ?? {}}
+                      onChange={(v) => handleConfigChange("payload", v)}
+                      variables={suggestions}
+                      minHeight="72px"
+                      ariaLabel={tNodes("schedule.fields.payload")}
                     />
                   </Field>
                 </>
+              )}
+
+              {nodeType === "transform" && (
+                <Field id={`${fid}-template`} label={tNodes("transform.fields.template")} hint={tNodes("transform.fields.templateHint")}>
+                  <CodeField
+                    id={`${fid}-template`}
+                    value={config.template ?? {}}
+                    onChange={(v) => handleConfigChange("template", v)}
+                    variables={suggestions}
+                    minHeight="140px"
+                    ariaLabel={tNodes("transform.fields.template")}
+                  />
+                </Field>
+              )}
+
+              {nodeType === "delay" && (
+                <Field id={`${fid}-delay`} label={tNodes("delay.fields.durationMs")} hint={tNodes("delay.fields.durationHint")}>
+                  <Input
+                    id={`${fid}-delay`}
+                    type="number"
+                    min={0}
+                    max={30000}
+                    step={500}
+                    className="font-mono"
+                    value={String(config.durationMs ?? 1000)}
+                    onChange={(e) => handleConfigChange("durationMs", Math.max(0, Math.min(30000, Number(e.target.value) || 0)))}
+                  />
+                </Field>
               )}
 
               {nodeType === "action" && (
@@ -371,6 +471,15 @@ function InspectorBody({
                       ariaLabel={tNodes("action.fields.headers")}
                     />
                   </Field>
+                  <label className="flex items-center justify-between gap-3 text-[13px]">
+                    <span className="text-fg">{tNodes("action.fields.failOnHttpError")}</span>
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-[var(--accent)]"
+                      checked={config.failOnHttpError !== false}
+                      onChange={(e) => handleConfigChange("failOnHttpError", e.target.checked)}
+                    />
+                  </label>
                   <Field id={`${fid}-body`} label={tNodes("action.fields.body")}>
                     <CodeField
                       id={`${fid}-body`}

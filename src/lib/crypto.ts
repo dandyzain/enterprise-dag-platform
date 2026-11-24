@@ -1,16 +1,17 @@
 import crypto from "node:crypto";
+import { getEncryptionMasterKey } from "@/lib/config/env";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // 96-bit IV recommended for GCM
 const AUTH_TAG_LENGTH = 16;
 
 function getEncryptionKey(): Buffer {
-  const masterKey = process.env.ENCRYPTION_MASTER_KEY;
+  const masterKey = getEncryptionMasterKey();
   if (!masterKey) {
     throw new Error("ENCRYPTION_MASTER_KEY environment variable is not set.");
   }
   // Master key can be a 64-char hex string (32 bytes) or derived
-  if (masterKey.length === 64) {
+  if (/^[0-9a-fA-F]{64}$/.test(masterKey)) {
     return Buffer.from(masterKey, "hex");
   }
   return crypto.createHash("sha256").update(masterKey).digest();
@@ -72,4 +73,8 @@ export function decryptData(encryptedPayload: EncryptedPayload): string {
   ]);
 
   return decrypted.toString("utf8");
+}
+
+export function isEncryptionConfigured(): boolean {
+  return Boolean(getEncryptionMasterKey());
 }

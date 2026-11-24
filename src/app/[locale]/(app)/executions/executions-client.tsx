@@ -153,7 +153,7 @@ export function ExecutionsClient({ initialExecutions, workflowNames }: Execution
 
   // --- Filtering ------------------------------------------------------------
   const counts = useMemo(() => {
-    const c: Record<StatusFilter, number> = { ALL: executions.length, SUCCESS: 0, FAILED: 0, RUNNING: 0, PENDING: 0 };
+    const c: Record<StatusFilter, number> = { ALL: executions.length, SUCCESS: 0, FAILED: 0, RUNNING: 0, PENDING: 0, SKIPPED: 0 };
     for (const e of executions) c[e.status] += 1;
     return c;
   }, [executions]);
@@ -539,7 +539,13 @@ function StepsCell({ steps }: { steps: StepExecutionRecord[] }) {
   const tStatus = useTranslations("status");
   const ok = steps.filter((s) => s.status === "SUCCESS").length;
   if (steps.length === 0) return <span className="text-[13px] text-fg-subtle">—</span>;
-  const tone = { SUCCESS: "bg-success", FAILED: "bg-failed", RUNNING: "bg-running", PENDING: "bg-fg-subtle/50" } as const;
+  const tone = {
+    SUCCESS: "bg-success",
+    FAILED: "bg-failed",
+    RUNNING: "bg-running",
+    PENDING: "bg-fg-subtle/50",
+    SKIPPED: "bg-fg-subtle/30",
+  } as const;
   return (
     <Tooltip content={steps.map((s) => `${s.nodeId}: ${tStatus(s.status)}`).join(" · ")}>
       <span className="inline-flex items-center gap-2" tabIndex={0}>

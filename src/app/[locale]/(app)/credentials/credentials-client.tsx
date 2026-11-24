@@ -3,7 +3,7 @@
 import React, { useId, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
-import { Eye, EyeOff, KeyRound, Lock, Plus, Search, SearchX, ShieldCheck, Trash2, Webhook, Ticket, Fingerprint } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Lock, Plus, RefreshCw, Search, SearchX, ShieldCheck, Trash2, Webhook, Ticket, Fingerprint } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,11 +27,13 @@ import { RelativeTime } from "@/components/patterns/relative-time";
 import { CopyIcon, useCopy } from "@/components/patterns/copy-button";
 import { ConfirmDialog } from "@/components/patterns/confirm-dialog";
 import type { SafeCredentialRecord } from "@/lib/services/credential-service";
-import { createCredentialAction, deleteCredentialAction } from "@/lib/actions/credential-actions";
+import { createCredentialAction, deleteCredentialAction, rotateCredentialAction } from "@/lib/actions/credential-actions";
+import { hasPermission, type MemberRole } from "@/lib/auth/rbac";
 import { duration, ease } from "@/components/motion/presets";
 
 interface CredentialsVaultClientProps {
   initialCredentials: SafeCredentialRecord[];
+  role: MemberRole;
 }
 
 const TYPES = ["api_key", "bearer_token", "oauth_secret", "webhook_secret"] as const;
@@ -48,7 +50,7 @@ function normaliseName(value: string) {
   return value.toUpperCase().replace(/[\s-]+/g, "_").replace(/[^A-Z0-9_]/g, "");
 }
 
-export function CredentialsVaultClient({ initialCredentials }: CredentialsVaultClientProps) {
+export function CredentialsVaultClient({ initialCredentials, role }: CredentialsVaultClientProps) {
   const t = useTranslations("vault");
   const tCommon = useTranslations("common");
   const [credentials, setCredentials] = useState<SafeCredentialRecord[]>(initialCredentials);
@@ -56,6 +58,10 @@ export function CredentialsVaultClient({ initialCredentials }: CredentialsVaultC
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<SafeCredentialRecord | null>(null);
+  const [rotating, setRotating] = useState<SafeCredentialRecord | null>(null);
+  const canCreate = hasPermission(role, "credential:create");
+  const canDelete = hasPermission(role, "credential:delete");
+  const canView = hasPermission(role, "credential:view");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -83,11 +89,19 @@ export function CredentialsVaultClient({ initialCredentials }: CredentialsVaultC
         title={t("title")}
         description={t("subtitle")}
         actions={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus aria-hidden /> {t("newCredential")}
-          </Button>
+          canCreate ? (
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus aria-hidden /> {t("newCredential")}
+            </Button>
+          ) : null
         }
       />
+
+      {!canView && (
+        <p role="status" className="rounded-xl border border-line bg-surface-2 px-4 py-3 text-[13px] text-fg-muted">
+          {t("noAccess")}
+        </p>
+      )}
 
       <div className="flex items-start gap-3 rounded-2xl border border-line bg-surface p-4 shadow-elev-1">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-2 text-success">
@@ -142,9 +156,11 @@ export function CredentialsVaultClient({ initialCredentials }: CredentialsVaultC
               title={t("emptyTitle")}
               description={t("emptyHint")}
               actions={
-                <Button onClick={() => setCreateOpen(true)}>
-                  <Plus aria-hidden /> {t("newCredential")}
-                </Button>
+                canCreate ? (
+                  <Button onClick={() => setCreateOpen(true)}>
+                    <Plus aria-hidden /> {t("newCredential")}
+                  </Button>
+                ) : null
               }
             />
           ) : filtered.length === 0 ? (
@@ -161,7 +177,12 @@ export function CredentialsVaultClient({ initialCredentials }: CredentialsVaultC
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: duration.base, ease: ease.emphasized }}
                   >
-                    <CredentialRow cred={cred} typeLabel={typeLabel(cred.type)} onDelete={() => setPendingDelete(cred)} />
+                    <CredentialRow
+                      cred={cred}
+                      typeLabel={typeLabel(cred.type)}
+                      onDelete={canDelete ? () => setPendingDelete(cred) : undefined}
+                      onRotate={canCreate ? () => setRotating(cred) : undefined}
+                    />
                   </motion.li>
                 ))}
               </AnimatePresence>
@@ -174,6 +195,12 @@ export function CredentialsVaultClient({ initialCredentials }: CredentialsVaultC
         open={createOpen}
         onOpenChange={setCreateOpen}
         onCreated={(cred) => setCredentials((prev) => [cred, ...prev])}
+      />
+
+      <RotateCredentialDialog
+        credential={rotating}
+        onOpenChange={(o) => !o && setRotating(null)}
+        onRotated={(cred) => setCredentials((prev) => prev.map((c) => (c.id === cred.id ? cred : c)))}
       />
 
       <ConfirmDialog
@@ -192,7 +219,17 @@ export function CredentialsVaultClient({ initialCredentials }: CredentialsVaultC
   );
 }
 
-function CredentialRow({ cred, typeLabel, onDelete }: { cred: SafeCredentialRecord; typeLabel: string; onDelete: () => void }) {
+function CredentialRow({
+  cred,
+  typeLabel,
+  onDelete,
+  onRotate,
+}: {
+  cred: SafeCredentialRecord;
+  typeLabel: string;
+  onDelete?: () => void;
+  onRotate?: () => void;
+}) {
   const t = useTranslations("vault");
   const { copied, copy } = useCopy();
   const ref = `{{credentials.${cred.name}}}`;
@@ -213,6 +250,12 @@ function CredentialRow({ cred, typeLabel, onDelete }: { cred: SafeCredentialReco
             <span className="font-mono">{cred.maskedValue}</span>
             <span aria-hidden>·</span>
             <span>{t.rich("created", { time: () => <RelativeTime date={cred.createdAt} tooltip={false} /> })}</span>
+            {cred.updatedAt && new Date(cred.updatedAt).getTime() - new Date(cred.createdAt).getTime() > 1000 && (
+              <>
+                <span aria-hidden>·</span>
+                <span>{t.rich("rotated", { time: () => <RelativeTime date={cred.updatedAt} tooltip={false} /> })}</span>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -230,11 +273,20 @@ function CredentialRow({ cred, typeLabel, onDelete }: { cred: SafeCredentialReco
             <CopyIcon copied={copied} className="size-3.5 shrink-0" />
           </button>
         </Tooltip>
-        <Tooltip content={t("delete")}>
-          <Button variant="danger-ghost" size="icon-sm" onClick={onDelete} aria-label={t("deleteNamed", { name: cred.name })}>
-            <Trash2 aria-hidden />
-          </Button>
-        </Tooltip>
+        {onRotate && (
+          <Tooltip content={t("rotate")}>
+            <Button variant="ghost" size="icon-sm" onClick={onRotate} aria-label={t("rotateNamed", { name: cred.name })}>
+              <RefreshCw aria-hidden />
+            </Button>
+          </Tooltip>
+        )}
+        {onDelete && (
+          <Tooltip content={t("delete")}>
+            <Button variant="danger-ghost" size="icon-sm" onClick={onDelete} aria-label={t("deleteNamed", { name: cred.name })}>
+              <Trash2 aria-hidden />
+            </Button>
+          </Tooltip>
+        )}
       </div>
     </div>
   );
@@ -369,6 +421,95 @@ function CreateCredentialDialog({
             </Button>
             <Button type="submit" loading={isCreating}>
               {!isCreating && <Lock aria-hidden />} {t("form.submit")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RotateCredentialDialog({
+  credential,
+  onOpenChange,
+  onRotated,
+}: {
+  credential: SafeCredentialRecord | null;
+  onOpenChange: (open: boolean) => void;
+  onRotated: (cred: SafeCredentialRecord) => void;
+}) {
+  const t = useTranslations("vault");
+  const tCommon = useTranslations("common");
+  const valueId = useId();
+  const [value, setValue] = useState("");
+  const [visible, setVisible] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  React.useEffect(() => {
+    if (!credential) {
+      setValue("");
+      setVisible(false);
+    }
+  }, [credential]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!credential || !value.trim()) return;
+    setBusy(true);
+    try {
+      const res = await rotateCredentialAction(credential.id, value);
+      if (!res.success || !res.credential) {
+        toast.error(res.error || t("rotateFailed"));
+        return;
+      }
+      onRotated(res.credential);
+      toast.success(t("rotatedToast", { name: credential.name }));
+      onOpenChange(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={credential !== null} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>{t("rotateTitle", { name: credential?.name ?? "" })}</DialogTitle>
+            <DialogDescription>{t("rotateDescription")}</DialogDescription>
+          </DialogHeader>
+          <DialogBody>
+            <Field id={valueId} label={t("newValue")}>
+              <div className="relative">
+                <Input
+                  id={valueId}
+                  type={visible ? "text" : "password"}
+                  autoComplete="off"
+                  className="pr-10 font-mono"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2"
+                  onClick={() => setVisible((v) => !v)}
+                  aria-label={visible ? t("hideValue") : t("showValue")}
+                  aria-pressed={visible}
+                >
+                  {visible ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
+                </Button>
+              </div>
+            </Field>
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+              {tCommon("cancel")}
+            </Button>
+            <Button type="submit" loading={busy} disabled={!value.trim()}>
+              <RefreshCw aria-hidden /> {t("rotate")}
             </Button>
           </DialogFooter>
         </form>

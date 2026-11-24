@@ -3,9 +3,9 @@
 import React, { memo } from "react";
 import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react";
 import { useTranslations } from "next-intl";
-import { AlertTriangle, Clock, Copy, FlaskConical, Loader2, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, CircleSlash, Clock, Copy, FlaskConical, Loader2, Trash2, XCircle } from "lucide-react";
 import { cn, formatDuration } from "@/lib/utils";
-import type { NodeData } from "@/lib/dag/types";
+import { TRIGGER_NODE_TYPES, type NodeData } from "@/lib/dag/types";
 import { NODE_META, asNodeType } from "./node-meta";
 import { useCanvasUI } from "./canvas-context";
 
@@ -33,8 +33,9 @@ export const CustomWorkflowNode = memo(({ id, data, selected }: NodeProps) => {
   const isRunning = state === "RUNNING";
   const isSuccess = state === "SUCCESS";
   const isFailed = state === "FAILED";
+  const isSkipped = state === "SKIPPED";
   const inCycle = cycleNodeIds.has(id);
-  const hasTarget = nodeType !== "trigger" && nodeType !== "webhook";
+  const hasTarget = !TRIGGER_NODE_TYPES.includes(nodeType);
 
   return (
     <>
@@ -73,6 +74,7 @@ export const CustomWorkflowNode = memo(({ id, data, selected }: NodeProps) => {
           selected ? "border-accent/70 shadow-elev-2 ring-3 ring-accent/15" : "border-line hover:border-line-strong hover:shadow-elev-2",
           isSuccess && !selected && "border-success/45",
           isFailed && "animate-shake border-failed/70",
+          isSkipped && !selected && "border-dashed opacity-60",
           inCycle && "border-dashed border-failed ring-3 ring-failed/15"
         )}
         aria-label={`${tNodes(`${nodeType}.short`)}: ${nodeData?.label ?? ""}${state ? ` — ${tStatus(state)}` : ""}`}
@@ -105,6 +107,7 @@ export const CustomWorkflowNode = memo(({ id, data, selected }: NodeProps) => {
             {isSuccess && <CheckDraw />}
             {isFailed && <XCircle className="size-4 text-failed" />}
             {state === "PENDING" && <Clock className="size-4 text-fg-subtle" />}
+            {isSkipped && <CircleSlash className="size-4 text-fg-subtle" />}
           </span>
         </div>
 

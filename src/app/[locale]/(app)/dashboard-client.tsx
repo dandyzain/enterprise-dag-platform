@@ -40,6 +40,8 @@ import { useShell } from "@/components/shell/shell-context";
 import { cn, formatDuration, splitNameTitle } from "@/lib/utils";
 import { duration, ease, staggerContainer } from "@/components/motion/presets";
 import { DashboardHero } from "./dashboard-hero";
+import { WorkflowActionsMenu } from "@/components/patterns/workflow-actions-menu";
+import type { MemberRole } from "@/lib/auth/rbac";
 
 export interface DashboardWorkflow {
   id: string;
@@ -88,12 +90,13 @@ function readView(): ViewMode {
 
 interface DashboardClientProps {
   userName: string | null;
+  role: MemberRole;
   workflows: DashboardWorkflow[];
   recentRuns: DashboardRun[];
   metrics: DashboardMetrics;
 }
 
-export function DashboardClient({ userName, workflows, recentRuns, metrics }: DashboardClientProps) {
+export function DashboardClient({ userName, role, workflows, recentRuns, metrics }: DashboardClientProps) {
   const t = useTranslations("dashboard");
   const tUi = useTranslations("ui");
   const locale = useLocale();
@@ -336,7 +339,7 @@ export function DashboardClient({ userName, workflows, recentRuns, metrics }: Da
                       delay: firstPaint.current ? 0.2 + i * 0.06 : 0,
                     }}
                   >
-                    <WorkflowCard wf={wf} />
+                    <WorkflowCard wf={wf} role={role} />
                   </motion.li>
                 ))}
               </AnimatePresence>
@@ -362,7 +365,7 @@ export function DashboardClient({ userName, workflows, recentRuns, metrics }: Da
                       exit={{ opacity: 0 }}
                       transition={{ duration: duration.fast }}
                     >
-                      <WorkflowRow wf={wf} />
+                      <WorkflowRow wf={wf} role={role} />
                     </motion.li>
                   ))}
                 </AnimatePresence>
@@ -432,7 +435,7 @@ export function DashboardClient({ userName, workflows, recentRuns, metrics }: Da
   );
 }
 
-function WorkflowCard({ wf }: { wf: DashboardWorkflow }) {
+function WorkflowCard({ wf, role }: { wf: DashboardWorkflow; role: MemberRole }) {
   const t = useTranslations("dashboard");
   const onPointerMove = useSpotlight<HTMLDivElement>();
 
@@ -447,8 +450,9 @@ function WorkflowCard({ wf }: { wf: DashboardWorkflow }) {
     >
       <div className="relative h-32 border-b border-line bg-dot-grid px-4 py-3">
         <DagThumbnail nodes={wf.nodes} edges={wf.edges} ariaLabel={t("graphLabel", { count: wf.nodes.length })} />
-        <div className="absolute right-3 top-3">
+        <div className="absolute right-3 top-3 flex items-center gap-1">
           <WorkflowStatusBadge status={wf.status} className="bg-overlay/90 backdrop-blur" />
+          <WorkflowActionsMenu workflow={wf} role={role} className="bg-overlay/90 backdrop-blur" />
         </div>
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-4">
@@ -479,10 +483,10 @@ function WorkflowCard({ wf }: { wf: DashboardWorkflow }) {
   );
 }
 
-function WorkflowRow({ wf }: { wf: DashboardWorkflow }) {
+function WorkflowRow({ wf, role }: { wf: DashboardWorkflow; role: MemberRole }) {
   const t = useTranslations("dashboard");
   return (
-    <div className="group relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-2/60 lg:grid-cols-[minmax(0,1fr)_120px_80px_150px_130px_24px]">
+    <div className="group relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-2/60 lg:grid-cols-[minmax(0,1fr)_120px_80px_150px_130px_32px]">
       <div className="flex min-w-0 items-center gap-3">
         <div className="hidden h-11 w-16 shrink-0 rounded-lg border border-line bg-dot-grid p-1 sm:block">
           <DagThumbnail nodes={wf.nodes} edges={wf.edges} ariaLabel={t("graphLabel", { count: wf.nodes.length })} />
@@ -517,10 +521,9 @@ function WorkflowRow({ wf }: { wf: DashboardWorkflow }) {
       <span className="hidden text-[13px] text-fg-muted lg:block">
         <RelativeTime date={wf.updatedAt} tooltip={false} />
       </span>
-      <ArrowRight
-        className="hidden size-4 -translate-x-1 text-fg-subtle opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 lg:block"
-        aria-hidden
-      />
+      <span className="hidden lg:block">
+        <WorkflowActionsMenu workflow={wf} role={role} className="-ml-2" />
+      </span>
     </div>
   );
 }
