@@ -67,17 +67,38 @@ const seedCreds = [
   },
 ];
 
-for (const cred of seedCreds) {
-  const enc = encryptData(cred.value);
-  memoryCredentials.set(cred.id, {
-    id: cred.id,
-    userId: cred.userId,
-    name: cred.name,
-    type: cred.type,
-    encryptedData: enc.encryptedData,
-    iv: enc.iv,
-    createdAt: new Date(),
-  });
+let isMemorySeeded = false;
+
+// Seed lazily rather than at import time: encrypting needs ENCRYPTION_MASTER_KEY,
+// and importing this module during `next build` must not require runtime secrets.
+// Without a key the demo seed is skipped; real encryption still throws as before.
+function ensureMemorySeeded(): void {
+  if (isMemorySeeded) return;
+
+  let seeded: StoredCredentialRecord[];
+  try {
+    seeded = seedCreds.map((cred) => {
+      const enc = encryptData(cred.value);
+      return {
+        id: cred.id,
+        userId: cred.userId,
+        name: cred.name,
+        type: cred.type,
+        encryptedData: enc.encryptedData,
+        iv: enc.iv,
+        createdAt: new Date(),
+      };
+    });
+  } catch {
+    return;
+  }
+
+  for (const record of seeded) {
+    if (!memoryCredentials.has(record.id)) {
+      memoryCredentials.set(record.id, record);
+    }
+  }
+  isMemorySeeded = true;
 }
 
 export async function createCredential(input: {
@@ -86,6 +107,7 @@ export async function createCredential(input: {
   type: string;
   value: string;
 }): Promise<SafeCredentialRecord> {
+  ensureMemorySeeded();
   const userId = input.userId || "usr_default_admin";
   const id = `cred_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
   const encrypted = encryptData(input.value);
@@ -143,6 +165,7 @@ export async function createCredential(input: {
 }
 
 export async function listCredentials(userId = "usr_default_admin"): Promise<SafeCredentialRecord[]> {
+  ensureMemorySeeded();
   if (isCredentialDbAvailable) {
     try {
       const dbRecords = await prisma.credential.findMany({
@@ -205,6 +228,7 @@ export async function listCredentials(userId = "usr_default_admin"): Promise<Saf
 }
 
 export async function getCredentialSecret(nameOrId: string): Promise<string | null> {
+  ensureMemorySeeded();
   const normalized = nameOrId.trim();
 
   if (isCredentialDbAvailable) {
@@ -249,6 +273,7 @@ export async function getCredentialSecret(nameOrId: string): Promise<string | nu
 }
 
 export async function deleteCredential(id: string): Promise<boolean> {
+  ensureMemorySeeded();
   try {
     await prisma.credential.delete({
       where: { id },
